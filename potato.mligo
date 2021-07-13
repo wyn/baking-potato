@@ -11,17 +11,7 @@ type game_player = game_id * address
 *)
 type stake = nat
 type potato = stake ticket
-
-
-type game_data =
-[@layout:comb]
-{
-    admin: address;
-    start_time: timestamp; (* when the game will start *)
-    in_progress: bool;
-    players: address list; (* 'array' of players as represented by their stakes, limited to 100 *)
-    currently_holding: address option; (* before the game it is None, when the game starts this will be Something players[0] and is incremented when potato is passed *)
-}
+type timestamped_stake = timestamp * stake
 
 type new_game_data =
 [@layout:comb]
@@ -31,13 +21,23 @@ type new_game_data =
     game_id: game_id;
 }
 
+type game_data =
+[@layout:comb]
+{
+    admin: address;
+    start_time: timestamp; (* when the game will start *)
+    in_progress: bool;
+    players: address list; (* 'array' of players as represented by their stakes, limited to _MAX_PLAYERS *)
+    currently_holding: address option; (* before the game it is None, when the game starts this will be Something players[0] and index is incremented when potato is passed *)
+}
+
 type storage =
 [@layout:comb]
 {
     games: (game_id, game_data) big_map;
 
     (* all addresses for a game_id should be either in 'players', 'currently_holding' or 'durations' for that game_id *)
-    stakes: (game_player, stake * timestamp) big_map;
+    stakes: (game_player, timestamped_stake) big_map;
 
     (* when the potato is passed the current holder's duration in milliseconds is put in here, and the next player is assigned to currently holding
        TODO might not need it, can derive from blockchain data - though probably more reliable to keep track here
