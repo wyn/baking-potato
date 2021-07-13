@@ -5,6 +5,7 @@
 
 type game_id = string
 type game_player = game_id * address
+type address_array = (nat, address) map
 
 (* potato is a ticket holding an amout in mutez
    gets passed around and the nat increases
@@ -27,8 +28,8 @@ type game_data =
     admin: address;
     start_time: timestamp; (* when the game will start *)
     in_progress: bool;
-    players: address list; (* 'array' of players as represented by their stakes, limited to _MAX_PLAYERS *)
-    currently_holding: address option; (* before the game it is None, when the game starts this will be Something players[0] and index is incremented when potato is passed *)
+    players: address_array; (* 'array' of players as represented by their stakes, limited to _MAX_PLAYERS *)
+    currently_holding: nat; (* when the game starts this will be 0 ie players[0] and index is incremented when potato is passed *)
 }
 
 type storage =
@@ -52,7 +53,7 @@ type parameter =
 | Start_game of game_id (* admin starts the game *)
 | Pass_potato of game_id (* non-admin passes the potato *)
 | Drop_potato of game_id (* admin signals run out of time *)
-| End_game of game_id (* person holding the potato loses their stake, anyone who held and passed gets their weighted reward, anyone who didnt hold gets their money back *)
+| End_game of game_id (* person holding the potato loses their stake, anyone who held and passed gets their weighted reward, anyone who didnt hold loses their money *)
 
 type return = operation list * storage
 
@@ -66,14 +67,13 @@ begin
             assert (Tezos.source = admin);
             assert (not Big_map.mem game_id store.games);
             assert (now < start_time);
-            let players : address list = [] in
-            let currently_holding : address option = None in
+            let players : address_array = Map.empty in
             let game_data : game_data = {
                 admin = admin;
                 start_time = start_time;
                 in_progress = false;
                 players = players;
-                currently_holding = currently_holding;
+                currently_holding = 0n;
             } in
             let new_games = Big_map.add game_id game_data store.games in
             let durations : (game_player, nat) big_map = Big_map.empty in
