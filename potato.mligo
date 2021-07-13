@@ -36,11 +36,11 @@ type storage =
 {
     games: (game_id, game_data) big_map;
 
-    (* all addresses for a game_id should be either in 'players_left', 'currently_holding' or 'previously_help' for that game_id *)
-    stakes: (game_player, stake) big_map;
+    (* all addresses for a game_id should be either in 'players', 'currently_holding' or 'durations' for that game_id *)
+    stakes: (game_player, stake * timestamp) big_map;
 
     (* when the potato is passed the current holder's duration in milliseconds is put in here, and the next player is assigned to currently holding
-       TODO might not need it, can derive from blockchain data
+       TODO might not need it, can derive from blockchain data - though probably more reliable to keep track here
     *)
     durations: (game_player, nat) big_map;
 }
@@ -67,7 +67,6 @@ begin
             assert (not Big_map.mem game_id store.games);
             assert (now < start_time);
             let players : address list = [] in
-            let durations : (game_player, nat) big_map = Big_map.empty in
             let currently_holding : address option = None in
             let game_data : game_data = {
                 admin = admin;
@@ -77,7 +76,8 @@ begin
                 currently_holding = currently_holding;
             } in
             let new_games = Big_map.add game_id game_data store.games in
-            ( ([] : operation list), { store with games = new_games; } )
+            let durations : (game_player, nat) big_map = Big_map.empty in
+            ( ([] : operation list), { store with games = new_games; durations = durations} )
         end
 
       | Register_for_game (game_id, stake) ->
