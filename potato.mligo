@@ -34,7 +34,7 @@ type new_game_data =
 type storage =
 [@layout:comb]
 {
-    data: (game_id, game_data) big_map;
+    games: (game_id, game_data) big_map;
 
     (* all addresses for a game_id should be either in 'players_left', 'currently_holding' or 'previously_help' for that game_id *)
     stakes: (game_player, stake) big_map;
@@ -57,13 +57,14 @@ type parameter =
 type return = operation list * storage
 
 let main (action, store: parameter * storage) : return =
+let _MAX_PLAYERS : nat = 50n in
 begin
     ( match action with
       | New_game new_game_data -> begin
             let now = Tezos.now in
             let {admin = admin; start_time = start_time; game_id = game_id; } = new_game_data in
             assert (Tezos.source = admin);
-            assert (not Big_map.mem game_id store.data);
+            assert (not Big_map.mem game_id store.games);
             assert (now < start_time);
             let players : address list = [] in
             let durations : (game_player, nat) big_map = Big_map.empty in
@@ -75,8 +76,8 @@ begin
                 players = players;
                 currently_holding = currently_holding;
             } in
-            let new_data = Big_map.add game_id game_data store.data in
-            ( ([] : operation list), { store with data = new_data; } )
+            let new_games = Big_map.add game_id game_data store.games in
+            ( ([] : operation list), { store with games = new_games; } )
         end
 
       | Register_for_game (game_id, stake) ->
