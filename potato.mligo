@@ -4,17 +4,17 @@
 *)
 type duration =
 {
-  address: address;
-  milliseconds: nat;
+    address: address;
+    milliseconds: nat;
 }
 type potato = duration list ticket
 
 type stake = nat
 type timestamped_stake =
 {
-  address: address;
-  timestamp: timestamp;
-  stake: nat;
+    address: address;
+    timestamp: timestamp;
+    stake: nat;
 }
 type timestamped_stakes = timestamped_stake list
 
@@ -23,6 +23,36 @@ type timestamped_stakes = timestamped_stake list
 *)
 
 type game_id = string
+
+module Ts_array = struct
+  type data = (nat, timestamped_stake) map
+  type t =
+  {
+      data: data;
+      size: nat;
+  }
+
+  let empty : t =
+      let data : data = Map.empty in
+      {data=data; size=0n}
+
+  let from_list (stakes : timestamped_stakes) : t =
+      let init : (nat*data) = (0n, empty.data) in
+      let f (iacc, item : (nat*data) * timestamped_stake) : (nat*data) =
+          let (i, acc) = iacc in
+          let acc_ = Map.add i item acc in
+          let i_ = i + 1n in
+          (i_, acc_)
+      in
+      let iret : (nat*data) = List.fold_left f init stakes in
+      let (i, ret) = iret in
+      {data=ret; size=i}
+
+  let sorted (t : t) : t =
+      t
+
+end
+
 type address_array = (nat, address) map
 
 type new_game_data =
@@ -118,18 +148,32 @@ begin
 
       | Start_game game_id -> begin
             let now = Tezos.now in
-            match (Big_map.find_opt game_id store.games) with
-            | None -> (failwith "no game" : return)
-            | Some game -> begin
+            match (Big_map.find_opt game_id store.games, Big_map.find_opt game_id store.stakes) with
+            | (None, _) -> (failwith "no game" : return)
+            | (_, None) -> (failwith "no stakes" : return)
+            | (Some game, Some stakes) -> begin
               let addr = Tezos.sender in
               assert (addr = game.admin);
               assert (now >= game.start_time);
               assert (not game.in_progress);
-              let players : address_array = Map.empty in
-              let new_game = { game with in_progress = true; players = players; currently_holding = 0n } in
-              let new_games = Big_map.update game_id (Some new_game) store.games in
-              (* TODO send potato to player0 *)
-              ( ([] : operation list), {store with games = new_games} )
+              (* stakes is a list {
+                            address: address;
+                            timestamp: timestamp;
+                            stake: nat;
+              }
+              need to sort by stake and then timestamp
+              *)
+              match stakes with
+              | [] -> (failwith "not enough players" : return)
+              | [_] -> (failwith "not enough players, only one" : return)
+              | stakes ->
+                let ts_arr : Ts_array.t = Ts_array.sorted (Ts_array.from_list stakes) in
+                let get_address = fun (_i, ts : nat * timestamped_stake) -> ts.address in
+                let players = Map.map get_address ts_arr.data in
+                let new_game = { game with in_progress = true; players = players; currently_holding = 0n } in
+                let new_games = Big_map.update game_id (Some new_game) store.games in
+                (* TODO send potato to player0 *)
+                ( ([] : operation list), {store with games = new_games} )
             end
       end
 
