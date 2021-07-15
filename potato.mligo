@@ -93,7 +93,7 @@ type parameter =
 type return = operation list * storage
 
 let main (action, store: parameter * storage) : return =
-let _MAX_PLAYERS : nat = 50n in
+let _MAX_PLAYERS : nat = 10n in
 begin
     ( match action with
       | New_game new_game_data -> begin
@@ -177,8 +177,21 @@ begin
             end
       end
 
-      | Pass_potato game_id ->
-            ( ([] : operation list), store )
+      | Pass_potato game_id -> begin
+            let now = Tezos.now in
+            match (Big_map.find_opt game_id store.games) with
+            | None -> (failwith "no game" : return)
+            | Some game -> begin
+              let addr = Tezos.sender in
+              assert (addr <> game.admin);
+              assert (now >= game.start_time);
+              assert (game.in_progress);
+              let new_game = { game with currently_holding = game.currently_holding + 1n } in
+              let new_games = Big_map.update game_id (Some new_game) store.games in
+              (* TODO record duration for playerN and send potato to playerN+1 *)
+              ( ([] : operation list), {store with games = new_games} )
+            end
+      end
 
       | Drop_potato game_id ->
             ( ([] : operation list), store )
