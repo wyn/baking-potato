@@ -34,7 +34,8 @@ end
 
 module Ts_array = struct
 
-  type data = (nat, Ts_stake.t) map
+  type el = Ts_stake.t
+  type data = (nat, el) map
 
   type t =
   {
@@ -46,9 +47,9 @@ module Ts_array = struct
       let data : data = Map.empty in
       {data=data; size=0n}
 
-  let from_list (stakes : Ts_stake.t list) : t =
+  let from_list (stakes : el list) : t =
       let init : t = empty in
-      let f (acc, item : t * Ts_stake.t) : t =
+      let f (acc, item : t * el) : t =
           let {data=data; size=size} = acc in
           let size_ = size + 1n in
           let data_ = Map.add size_ item data in
@@ -56,8 +57,36 @@ module Ts_array = struct
       in
       List.fold_left f init stakes
 
-  let sorted (t : t) : t =
-      t
+  let get (i : nat) (t : t) : el option = begin
+      Map.find_opt i t.data
+  end
+
+  let to_list (t : t) : el list =
+      let init : el list = [] in
+      let init : el list * nat = (init, 0n) in
+      let f (acc, _kyvl : (el list * nat) * (nat * el)) : el list * nat =
+          let (xs, i) = acc in
+          match (Map.find_opt i t.data) with
+          | Some x -> (x :: xs, i+1n)
+          | None -> (xs, i+1n)
+      in
+      let (ls, _i) = Map.fold f t.data init in
+      ls
+
+  let _swap (i : nat) (j : nat) (t : t) : t = begin
+      assert (i < t.size);
+      assert (j < t.size);
+      let data = if (i = j) then t.data else begin
+         let jval = Map.find_opt i t.data in
+         let (ival, data_) = Map.get_and_update i jval t.data in
+         Map.update j ival data_
+      end
+      in
+      {t with data=data}
+  end
+
+  let sort_by (f : el -> el -> bool) (t : t) : el list =
+      to_list t
 
 end
 
