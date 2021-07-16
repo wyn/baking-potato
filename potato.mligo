@@ -80,9 +80,13 @@ module Ts_array = struct
       Map.fold f stakes init
 
 
-  let get (i : nat) (t : t) : el option = begin
+  let get (i : nat) (t : t) : el option =
       Map.find_opt i t.data
-  end
+
+  let set (i : nat) (value : el option) (t : t) : t =
+      let size = if i >= t.size then i else t.size in
+      let data = Map.update i value t.data in
+      {data=data; size=size}
 
   let to_address_array (t : t) : address_array =
       let init : address_array = Map.empty in
@@ -267,7 +271,7 @@ begin
               assert (addr = game.admin);
               assert (now >= game.start_time);
               assert (game.in_progress);
-              (* TODO work out reqards and distribute to players who held *)
+              (* TODO work out rewards and distribute to players who held *)
               (* delete the game data and stakes for this game *)
               let games = Big_map.update game_id (None : game_data option) store.games in
               let stakes = Big_map.update game_id (None : ts_stakes option) store.stakes in
