@@ -20,17 +20,28 @@ module Ts_stake = struct
   {
     timestamp: timestamp;
     stake: stake;
+    address: address;
   }
 
-  let make (timestamp : timestamp)  (stake : stake) : t = {timestamp=timestamp; stake=stake}
+  let make (timestamp : timestamp)  (stake : stake) (addr : address) : t = {timestamp=timestamp; stake=stake; address=addr}
 
-  let add (t : t) (other : t) : t =
+  let _add (other : t) (t : t) : t =
       let ts : timestamp = if t.timestamp > other.timestamp then t.timestamp else other.timestamp in
       let s = t.stake + other.stake in
-      { timestamp=ts; stake=s }
+      { t with timestamp=ts; stake=s }
+
+  let add (other : t) (t : t) : t option =
+      if t.address = other.address then Some (_add other t) else None
+
+  let add_exn (other : t) (t : t) : t = begin
+      assert (t.address = other.address);
+      _add other t
+  end
 
 
 end
+
+type address_array = (nat, address) map
 
 module Ts_array = struct
 
@@ -57,9 +68,29 @@ module Ts_array = struct
       in
       List.fold_left f init stakes
 
+  let from_addresses (stakes : (address, el) map) : t =
+      let init : t = empty in
+      let f (acc, kyvl : t * (address * el)) : t =
+          let {data=data; size=size} = acc in
+          let (_addr, item) = kyvl in
+          let size_ = size + 1n in
+          let data_ = Map.add size_ item data in
+          {data=data_; size=size_}
+      in
+      Map.fold f stakes init
+
+
   let get (i : nat) (t : t) : el option = begin
       Map.find_opt i t.data
   end
+
+  let to_address_array (t : t) : address_array =
+      let init : address_array = Map.empty in
+      let f (acc, kyvl : address_array * (nat * el)) : address_array =
+          let (ky, vl) = kyvl in
+          Map.add ky vl.address acc
+      in
+      Map.fold f t.data init
 
   let to_list (t : t) : el list =
       let init : el list = [] in
@@ -85,14 +116,13 @@ module Ts_array = struct
       {t with data=data}
   end
 
-  let sort_by (f : el -> el -> bool) (t : t) : el list =
-      to_list t
+  let sort_by (f : el -> el -> bool) (t : t) : t =
+      t
 
 end
 
 
 type ts_stakes = (address, Ts_stake.t) map
-type address_array = (nat, address) map
 type game_id = string
 
 type new_game_data =
@@ -162,7 +192,7 @@ begin
               assert (addr <> game.admin);
               assert (now < game.start_time);
               assert (not game.in_progress);
-              let init : ts_stakes = Map.literal [(addr, (Ts_stake.make now stake))] in
+              let init : ts_stakes = Map.literal [(addr, (Ts_stake.make now stake addr))] in
               let new_stakes : ts_stakes = match (Big_map.find_opt game_id store.stakes) with
                   | None ->  init
                   | Some stakes -> begin
@@ -171,7 +201,7 @@ begin
                     let f (acc, kyvl : ts_stakes * (address * Ts_stake.t)) : ts_stakes =
                         let (addr_, ts_) = kyvl in
                         match Map.find_opt addr_ acc with
-                        | Some ts -> let ts = Ts_stake.add ts ts_ in Map.update addr_ (Some ts) acc
+                        | Some ts -> let ts = Ts_stake.add ts_ ts in Map.update addr_ ts acc
                         | None -> Map.add addr_ ts_ acc
                     in
                     Map.fold f stakes init
@@ -201,16 +231,14 @@ begin
               *)
               if (Map.size stakes < 2n) then
                  (failwith "not enough players" : return)
-              else
-                (* let ts_arr : Ts_array.t = Ts_array.sorted (Ts_array.from_list stakes) in
-                let get_address = fun (_i, ts : nat * ts_stake) -> ts.address in
-                let players = Map.map get_address ts_arr.data in
+              else begin
+                let f (x : Ts_array.el) (y : Ts_array.el) : bool = if x.stake = y.stake then x.timestamp > y.timestamp else x.stake > y.stake in
+                let players : address_array = Ts_array.to_address_array (Ts_array.sort_by f (Ts_array.from_addresses stakes)) in
                 let new_game = { game with in_progress = true; players = players; currently_holding = 0n } in
                 let new_games = Big_map.update game_id (Some new_game) store.games in
                 (* TODO send potato to player0 *)
                 ( ([] : operation list), {store with games = new_games} )
-                *)
-                ( ([] : operation list), store)
+              end
             end
       end
 
