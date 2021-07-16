@@ -201,7 +201,7 @@ begin
                     let f (acc, kyvl : ts_stakes * (address * Ts_stake.t)) : ts_stakes =
                         let (addr_, ts_) = kyvl in
                         match Map.find_opt addr_ acc with
-                        | Some ts -> let ts = Ts_stake.add ts_ ts in Map.update addr_ ts acc
+                        | Some ts -> let ts_merged = Ts_stake.add ts_ ts in Map.update addr_ ts_merged acc
                         | None -> Map.add addr_ ts_ acc
                     in
                     Map.fold f stakes init
@@ -268,7 +268,10 @@ begin
               assert (now >= game.start_time);
               assert (game.in_progress);
               (* TODO work out reqards and distribute to players who held *)
-              ( ([] : operation list), store )
+              (* delete the game data and stakes for this game *)
+              let games = Big_map.update game_id (None : game_data option) store.games in
+              let stakes = Big_map.update game_id (None : ts_stakes option) store.stakes in
+              ( ([] : operation list), {games=games; stakes=stakes})
             end
       end
     )
