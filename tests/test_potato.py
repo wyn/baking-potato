@@ -19,7 +19,7 @@ class SandboxedContractTest(SandboxedNodeTestCase):
         # Originate contract with initial storage
         contract = ContractInterface.from_file(os.path.join(BUILD_DIR, "potato.tz"))
         opg = contract.using(shell=self.get_node_url(), key='bootstrap1').originate(initial_storage=None)
-        opg = opg.fill().sign().inject()
+        opg = opg.fill().sign().inject()3
 
         self.bake_block()
 

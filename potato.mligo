@@ -1,4 +1,8 @@
 
+(* ok so cant have big maps inside main storage big map
+   so need to split into current game and next game?
+*)
+
 (* potato is a ticket holding the durations as a nat
    gets passed around and the nat increases
 *)
@@ -10,22 +14,34 @@ type duration =
 type potato = duration list ticket
 
 type stake = nat
-type timestamped_stake =
-{
-    address: address;
+
+module Ts_stake = struct
+  type t =
+  {
     timestamp: timestamp;
-    stake: nat;
+    stake: stake;
+  }
+
+  let add (t, other : t * t) : t =
+      let ts : timestamp = if t.timestamp > other.timestamp then t.timestamp else other.timestamp in
+      let s = t.stake + other.stake in
+      { timestamp=ts; stake=s }
+
+
+end
+
+type ts_stake =   {
+     address: address;
+     timestamp: timestamp;
+     stake: stake;
 }
-type timestamped_stakes = timestamped_stake list
 
-(* ok so cant have big maps inside main storage big map
-   so need to split into current game and next game?
-*)
-
-type game_id = string
+type ts_stakes = ts_stake list
 
 module Ts_array = struct
-  type data = (nat, timestamped_stake) map
+
+  type data = (nat, ts_stake) map
+
   type t =
   {
       data: data;
@@ -36,9 +52,9 @@ module Ts_array = struct
       let data : data = Map.empty in
       {data=data; size=0n}
 
-  let from_list (stakes : timestamped_stakes) : t =
+  let from_list (stakes : ts_stakes) : t =
       let init : (nat*data) = (0n, empty.data) in
-      let f (iacc, item : (nat*data) * timestamped_stake) : (nat*data) =
+      let f (iacc, item : (nat*data) * ts_stake) : (nat*data) =
           let (i, acc) = iacc in
           let acc_ = Map.add i item acc in
           let i_ = i + 1n in
@@ -54,6 +70,7 @@ module Ts_array = struct
 end
 
 type address_array = (nat, address) map
+type game_id = string
 
 type new_game_data =
 [@layout:comb]
@@ -78,7 +95,7 @@ type storage =
 {
     games: (game_id, game_data) big_map;
 
-    stakes: (game_id, timestamped_stakes) big_map;
+    stakes: (game_id, ts_stakes) big_map;
 }
 
 
@@ -87,7 +104,6 @@ type parameter =
 | Register_for_game of (game_id * stake) (* non-admin register for a game by commiting tez *)
 | Start_game of game_id (* admin starts the game *)
 | Pass_potato of game_id (* non-admin passes the potato *)
-| Drop_potato of game_id (* admin signals run out of time *)
 | End_game of game_id (* person holding the potato loses their stake, anyone who held and passed gets their weighted reward, anyone who didnt hold loses their money *)
 
 type return = operation list * storage
@@ -99,9 +115,9 @@ begin
       | New_game new_game_data -> begin
             let now = Tezos.now in
             let {admin = admin; start_time = start_time; game_id = game_id; } = new_game_data in
-            (*assert (Tezos.sender = admin);*)
+            assert (Tezos.sender = admin);
             assert (not Big_map.mem game_id store.games);
-            (* assert (now < start_time); *)
+            assert (now < start_time);
             let players : address_array = Map.empty in
             let game_data : game_data = {
                 admin = admin;
@@ -123,21 +139,21 @@ begin
               assert (addr <> game.admin);
               assert (now < game.start_time);
               assert (not game.in_progress);
-              let ts_new_stake : timestamped_stake = {address=addr; timestamp=now; stake=stake} in
+              let ts_new_stake : ts_stake = {address=addr; timestamp=now; stake=stake} in
               let new_stakes = match (Big_map.find_opt game_id store.stakes) with
                   | None ->  [ts_new_stake]
                   | Some stakes -> begin
                     let n = List.length stakes in
                     assert (n <= _MAX_PLAYERS);
-                    let f (merged, ts_old: (timestamped_stake * timestamped_stakes) * timestamped_stake) : (timestamped_stake * timestamped_stakes) =
+                    let f (merged, ts_old: (ts_stake * ts_stakes) * ts_stake) : (ts_stake * ts_stakes) =
                         let (ts_merged, others) = merged in
                         match ts_old.address = addr with
                         | true -> ({ts_merged with timestamp = now; stake = stake + ts_old.stake}, others)
                         | false -> (ts_merged, ts_old :: others)
                     in
-                    let tss : timestamped_stakes = [] in
-                    let init : (timestamped_stake * timestamped_stakes) = (ts_new_stake, tss) in
-                    let (ts, others) : (timestamped_stake * timestamped_stakes) = List.fold_left f init stakes in
+                    let tss : ts_stakes = [] in
+                    let init : (ts_stake * ts_stakes) = (ts_new_stake, tss) in
+                    let (ts, others) : (ts_stake * ts_stakes) = List.fold_left f init stakes in
                     ts :: others
                   end
               in
@@ -168,7 +184,7 @@ begin
               | [_] -> (failwith "not enough players, only one" : return)
               | stakes ->
                 let ts_arr : Ts_array.t = Ts_array.sorted (Ts_array.from_list stakes) in
-                let get_address = fun (_i, ts : nat * timestamped_stake) -> ts.address in
+                let get_address = fun (_i, ts : nat * ts_stake) -> ts.address in
                 let players = Map.map get_address ts_arr.data in
                 let new_game = { game with in_progress = true; players = players; currently_holding = 0n } in
                 let new_games = Big_map.update game_id (Some new_game) store.games in
@@ -193,11 +209,19 @@ begin
             end
       end
 
-      | Drop_potato game_id ->
-            ( ([] : operation list), store )
-
-      | End_game game_id ->
-            ( ([] : operation list), store )
+      | End_game game_id -> begin
+            let now = Tezos.now in
+            match (Big_map.find_opt game_id store.games) with
+            | None -> (failwith "no game" : return)
+            | Some game -> begin
+              let addr = Tezos.sender in
+              assert (addr = game.admin);
+              assert (now >= game.start_time);
+              assert (game.in_progress);
+              (* TODO work out reqards and distribute to players who held *)
+              ( ([] : operation list), store )
+            end
+      end
     )
 
 end
