@@ -6,216 +6,77 @@
 (* potato is a ticket holding the durations as a nat
    gets passed around and the nat increases
 *)
-type duration =
-{
-    address: address;
-    milliseconds: nat;
-}
-type potato = duration list ticket
-
-type stake = nat
-
-module Ts_stake = struct
-  type t =
-  {
-    timestamp: timestamp;
-    stake: stake;
-    address: address;
-  }
-
-  let make (timestamp : timestamp)  (stake : stake) (addr : address) : t = {timestamp=timestamp; stake=stake; address=addr}
-
-  let _add (other : t) (t : t) : t =
-      let ts : timestamp = if t.timestamp > other.timestamp then t.timestamp else other.timestamp in
-      let s = t.stake + other.stake in
-      { t with timestamp=ts; stake=s }
-
-  let add (other : t) (t : t) : t option =
-      if t.address = other.address then Some (_add other t) else None
-
-  let add_exn (other : t) (t : t) : t = begin
-      assert (t.address = other.address);
-      _add other t
-  end
-
-
-end
-
-type address_array = (nat, address) map
-
-module Ts_array = struct
-
-  type el = Ts_stake.t
-  type data = (nat, el) map
-
-  type t =
-  {
-      data: data;
-      size: nat;
-  }
-
-  let empty : t =
-      let data : data = Map.empty in
-      {data=data; size=0n}
-
-  let from_list (stakes : el list) : t =
-      let init : t = empty in
-      let f (acc, item : t * el) : t =
-          let {data=data; size=size} = acc in
-          let size_ = size + 1n in
-          let data_ = Map.add size_ item data in
-          {data=data_; size=size_}
-      in
-      List.fold_left f init stakes
-
-  let from_addresses (stakes : (address, el) map) : t =
-      let init : t = empty in
-      let f (acc, kyvl : t * (address * el)) : t =
-          let {data=data; size=size} = acc in
-          let (_addr, item) = kyvl in
-          let size_ = size + 1n in
-          let data_ = Map.add size_ item data in
-          {data=data_; size=size_}
-      in
-      Map.fold f stakes init
-
-
-  let get (i : nat) (t : t) : el option =
-      Map.find_opt i t.data
-
-  let set (i : nat) (value : el option) (t : t) : t =
-      let size = if i >= t.size then i else t.size in
-      let data = Map.update i value t.data in
-      {data=data; size=size}
-
-  let to_address_array (t : t) : address_array =
-      let init : address_array = Map.empty in
-      let f (acc, kyvl : address_array * (nat * el)) : address_array =
-          let (ky, vl) = kyvl in
-          Map.add ky vl.address acc
-      in
-      Map.fold f t.data init
-
-  let to_list (t : t) : el list =
-      let init : el list = [] in
-      let init : el list * nat = (init, 0n) in
-      let f (acc, _kyvl : (el list * nat) * (nat * el)) : el list * nat =
-          let (xs, i) = acc in
-          match (Map.find_opt i t.data) with
-          | Some x -> (x :: xs, i+1n)
-          | None -> (xs, i+1n)
-      in
-      let (ls, _i) = Map.fold f t.data init in
-      ls
-
-  let _swap (i : nat) (j : nat) (t : t) : t = begin
-      assert (i < t.size);
-      assert (j < t.size);
-      let data = if (i = j) then t.data else begin
-         let jval = Map.find_opt i t.data in
-         let (ival, data_) = Map.get_and_update i jval t.data in
-         Map.update j ival data_
-      end
-      in
-      {t with data=data}
-  end
-
-  let sort_by (f : el -> el -> bool) (t : t) : t =
-      t
-
-end
-
-
-type ts_stakes = (address, Ts_stake.t) map
 type game_id = string
+type tkt = game_id ticket
 
 type new_game_data =
 [@layout:comb]
 {
+    game_id: game_id;
     admin: address;
     start_time: timestamp; (* when the game will start *)
-    game_id: game_id;
+    max_players: nat; (* max number players *)
 }
 
 type game_data =
 [@layout:comb]
 {
+    game_id: game_id; (* this game *)
     admin: address;
     start_time: timestamp; (* when the game will start *)
     in_progress: bool;
-    players: address_array; (* 'array' of players as represented by their stakes, limited to _MAX_PLAYERS, gets set when game starts, ordered by stake and timestamp *)
-    currently_holding: nat; (* when the game starts this will be 0 ie players[0] and index is incremented when potato is passed *)
 }
 
 type storage =
 [@layout:comb]
 {
-    games: (game_id, game_data) big_map;
+    game_data: game_data;
 
-    stakes: (game_id, ts_stakes) big_map;
+    tickets: (nat, tkt) big_map; (* one ticket holding N things per game *)
 }
 
 
 type parameter =
 | New_game of new_game_data (* admin opens a new game for people to register up to *)
-| Register_for_game of (game_id * stake) (* non-admin register for a game by commiting tez *)
+| Buy_ticket_for_game of (tkt contract) (* non-admin register for a game by buying a ticket *)
+(*
 | Start_game of game_id (* admin starts the game *)
-| Pass_potato of game_id (* non-admin passes the potato *)
-| End_game of game_id (* person holding the potato loses their stake, anyone who held and passed gets their weighted reward, anyone who didnt hold loses their money *)
-
+| Pass_potato of game_id (* non-admin passes the potato (ticket) back *)
+| End_game of game_id (* winner is person who held the longest but gave back before game ended *)
+*)
 type return = operation list * storage
 
 let main (action, store: parameter * storage) : return =
-let _MAX_PLAYERS : nat = 10n in
 begin
+    let {game_data = game_data; tickets = tickets} = store in
     ( match action with
       | New_game new_game_data -> begin
             let now = Tezos.now in
-            let {admin = admin; start_time = start_time; game_id = game_id; } = new_game_data in
+            let {game_id = game_id; admin = admin; start_time = start_time; max_players = max_players; } = new_game_data in
             assert (Tezos.sender = admin);
-            assert (not Big_map.mem game_id store.games);
             assert (now < start_time);
-            let no_players : address_array = Map.empty in
+            assert (max_players > 2n);
             let game_data : game_data = {
+                game_id = game_id;
                 admin = admin;
                 start_time = start_time;
                 in_progress = false;
-                players = no_players;
-                currently_holding = 0n;
             } in
-            let new_games = Big_map.add game_id game_data store.games in
-            ( ([] : operation list), { store with games = new_games } )
+            let ticket = Tezos.create_ticket game_id max_players in
+            let (_, tickets) = Big_map.get_and_update 0n (Some ticket) tickets in
+            ( ([] : operation list), { game_data = game_data; tickets=tickets } )
         end
 
-      | Register_for_game (game_id, stake) -> begin
+      | Buy_ticket_for_game _send_to -> begin
             let now = Tezos.now in
-            match (Big_map.find_opt game_id store.games) with
-            | None -> (failwith "no game" : return)
-            | Some game -> begin
-              let addr = Tezos.sender in
-              assert (addr <> game.admin);
-              assert (now < game.start_time);
-              assert (not game.in_progress);
-              let init : ts_stakes = Map.literal [(addr, (Ts_stake.make now stake addr))] in
-              let new_stakes : ts_stakes = match (Big_map.find_opt game_id store.stakes) with
-                  | None ->  init
-                  | Some stakes -> begin
-                    let n = Map.size stakes in
-                    assert (n < _MAX_PLAYERS);
-                    let merge_and_add_stakes (acc, kyvl : ts_stakes * (address * Ts_stake.t)) : ts_stakes =
-                        let (addr_, ts_) = kyvl in
-                        match Map.find_opt addr_ acc with
-                        | Some ts -> let ts_merged = Ts_stake.add ts_ ts in Map.update addr_ ts_merged acc
-                        | None -> Map.add addr_ ts_ acc
-                    in
-                    Map.fold merge_and_add_stakes stakes init
-                  end
-              in
-              let new_stakes = Big_map.update game_id (Some new_stakes) store.stakes in
-              ( ([] : operation list), {store with stakes = new_stakes} )
-            end
-      end
+            let addr = Tezos.sender in
+            assert (addr <> game_data.admin);
+            assert (now < game_data.start_time);
+            assert (not game_data.in_progress);
+            ( ([] : operation list), { game_data = game_data; tickets=tickets } )
 
+      end
+(*
       | Start_game game_id -> begin
             let now = Tezos.now in
             match (Big_map.find_opt game_id store.games, Big_map.find_opt game_id store.stakes) with
@@ -279,7 +140,7 @@ begin
               let stakes = Big_map.update game_id (None : ts_stakes option) store.stakes in
               ( ([] : operation list), {games=games; stakes=stakes})
             end
-      end
+      end *)
     )
 
 end
