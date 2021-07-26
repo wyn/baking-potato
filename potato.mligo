@@ -159,3 +159,48 @@ begin
     )
 
 end
+
+(*
+
+
+let test =
+    let _check_game_data = fun (actual : game_data) (expected : game_data) ->
+        let _ = assert (actual.game_id = expected.game_id) in
+        let _ = assert (actual.admin = expected.admin) in
+        let _ = assert (actual.start_time = expected.start_time) in
+        let _ = assert (actual.in_progress = expected.in_progress) in
+        let _ = assert (actual.num_players = expected.num_players) in
+        let _ = assert (actual.winner = expected.winner) in
+        let _ = assert (actual.game_over = expected.game_over) in
+        ()
+    in
+    let admin = ("tz1KqTpEZ7Yob7QbPE4Hy4Wo8fHG8LhKxZSx" : address) in
+    let _ = Test.set_source admin in
+    let init_data = {
+        game_id = "";
+        admin = admin;
+        start_time = ("2021-07-26t15:45:10Z" : timestamp);
+        in_progress = false;
+        num_players = 0n;
+        winner = (None : address option);
+        game_over = false;
+    } in
+    let init_tickets : (game_id, tkt_book) big_map = Big_map.empty in
+    let init_storage = { data = init_data; tickets = init_tickets } in
+    let (taddr, _, _) = Test.originate main init_storage 0tez in
+    let actual = Test.get_storage taddr in
+    let _ = _check_game_data actual.data init_data in
+    let _ = assert (false = Big_map.mem "game01" actual.tickets) in
+
+    let c = Test.to_contract taddr in
+    let new_game_data = {
+        game_id = "game01";
+        admin = admin;
+        start_time = ("2021-07-26t16:45:10Z" : timestamp);
+        max_players = 10n;
+    } in
+    let () = Test.transfer_to_contract_exn c (New_game new_game_data) 1mutez in
+    let actual = Test.get_storage taddr in
+    let _ = _check_game_data actual.data init_data in
+    ()
+*)
