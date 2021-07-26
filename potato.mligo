@@ -26,6 +26,7 @@ type game_data =
     start_time: timestamp; (* when the game will start *)
     in_progress: bool;
     num_players: nat;
+    winner: address option;
 }
 
 type storage =
@@ -36,14 +37,18 @@ type storage =
     tickets: (game_id, tkt_book) big_map; (* one ticket holding N things per game *)
 }
 
+type pass_potato_data =
+[@layout:comb]
+{
+  potato: tkt_book;
+}
 
 type parameter =
 | New_game of new_game_data (* admin opens a new game for people to register up to *)
 | Buy_ticket_for_game of (tkt_book contract) (* non-admin register for a game by buying a ticket *)
 | Start_game (* admin starts the game *)
+| Pass_potato of tkt_book (* non-admin passes the potato (ticket) back *)
 (*
-| Pass_potato of game_id (* non-admin passes the potato (ticket) back *)
-
 | End_game of game_id (* winner is person who held the longest but gave back before game ended *)
 *)
 type return = operation list * storage
@@ -58,12 +63,14 @@ begin
             assert (Tezos.sender = admin);
             assert (now < start_time);
             assert (max_players > 2n);
+            let winner : address option = None in
             let data : game_data = {
                 game_id = game_id;
                 admin = admin;
                 start_time = start_time;
                 in_progress = false;
                 num_players = 0n;
+                winner = winner;
             } in
             let ts = Tezos.create_ticket game_id max_players in
             let (_, tickets) = Big_map.get_and_update game_id (Some ts) tickets in
@@ -103,24 +110,28 @@ begin
             assert (data.num_players > 1n);
             ( ([] : operation list), {data = {data with in_progress = true}; tickets = tickets} )
       end
-(*
 
-      | Pass_potato game_id -> begin
+      | Pass_potato potato -> begin
             let now = Tezos.now in
-            match (Big_map.find_opt game_id store.games) with
-            | None -> (failwith "no game" : return)
-            | Some game -> begin
-              let addr = Tezos.sender in
-              assert (addr <> game.admin);
-              assert (now >= game.start_time);
-              assert (game.in_progress);
-              let new_game = { game with currently_holding = game.currently_holding + 1n } in
-              let new_games = Big_map.update game_id (Some new_game) store.games in
-              (* TODO record duration for playerN and send potato to playerN+1 *)
-              ( ([] : operation list), {store with games = new_games} )
-            end
+            let addr = Tezos.sender in
+            assert (addr <> data.admin);
+            assert (now >= data.start_time);
+            assert (data.in_progress);
+            assert (data.num_players > 1n);
+            let (t, tickets) = Big_map.get_and_update data.game_id (None : tkt_book option) tickets in
+            match t with
+              | None -> (failwith "ticket does not exist" : return)
+              | Some t ->
+                let ((_addr,(game_id, _amt)), t) = Tezos.read_ticket t in
+                match (game_id = data.game_id, Tezos.join_tickets (potato, t)) with
+                | (false, _) -> (failwith "Wrong game" : return)
+                | (true, None) -> (failwith "Wrong game" : return)
+                | (true, Some ts) ->
+                  let (_, tickets) = Big_map.get_and_update data.game_id (Some ts) tickets in
+                  ( ([] : operation list), {data = {data with winner = (Some addr)}; tickets = tickets; } )
       end
 
+(*
       | End_game game_id -> begin
             let now = Tezos.now in
             match (Big_map.find_opt game_id store.games) with
