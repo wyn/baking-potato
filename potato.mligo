@@ -7,7 +7,7 @@
    gets passed around and the nat increases
 *)
 type game_id = string
-type tkt = game_id ticket
+type tkt_book = game_id ticket
 
 type new_game_data =
 [@layout:comb]
@@ -25,6 +25,7 @@ type game_data =
     admin: address;
     start_time: timestamp; (* when the game will start *)
     in_progress: bool;
+    num_players: nat;
 }
 
 type storage =
@@ -32,16 +33,17 @@ type storage =
 {
     data: game_data;
 
-    tickets: (game_id, tkt) big_map; (* one ticket holding N things per game *)
+    tickets: (game_id, tkt_book) big_map; (* one ticket holding N things per game *)
 }
 
 
 type parameter =
 | New_game of new_game_data (* admin opens a new game for people to register up to *)
-| Buy_ticket_for_game of (tkt contract) (* non-admin register for a game by buying a ticket *)
+| Buy_ticket_for_game of (tkt_book contract) (* non-admin register for a game by buying a ticket *)
+| Start_game (* admin starts the game *)
 (*
-| Start_game of game_id (* admin starts the game *)
 | Pass_potato of game_id (* non-admin passes the potato (ticket) back *)
+
 | End_game of game_id (* winner is person who held the longest but gave back before game ended *)
 *)
 type return = operation list * storage
@@ -61,6 +63,7 @@ begin
                 admin = admin;
                 start_time = start_time;
                 in_progress = false;
+                num_players = 0n;
             } in
             let ts = Tezos.create_ticket game_id max_players in
             let (_, tickets) = Big_map.get_and_update game_id (Some ts) tickets in
@@ -78,7 +81,7 @@ begin
             match ((Tezos.get_contract_opt data.admin) : unit contract option) with
               | None -> (failwith "contract does not match" : return)
               | Some c -> let op1 = Tezos.transaction () purchase_price c in
-                  let (t, tickets) = Big_map.get_and_update data.game_id (None : tkt option) tickets in
+                  let (t, tickets) = Big_map.get_and_update data.game_id (None : tkt_book option) tickets in
                   match t with
                     | None -> (failwith "ticket does not exist" : return)
                     | Some t ->
@@ -89,40 +92,18 @@ begin
                       | (true, Some (t, ts)) ->
                         let op2 = Tezos.transaction t 0mutez send_to in
                         let (_, tickets) = Big_map.get_and_update data.game_id (Some ts) tickets in
-                        ([op1; op2], {data = data; tickets = tickets; })
+                        ([op1; op2], {data = {data with num_players = data.num_players + 1n}; tickets = tickets; })
+      end
+      | Start_game -> begin
+            let now = Tezos.now in
+            let addr = Tezos.sender in
+            assert (addr = data.admin);
+            assert (now >= data.start_time);
+            assert (not data.in_progress);
+            assert (data.num_players > 1n);
+            ( ([] : operation list), {data = {data with in_progress = true}; tickets = tickets} )
       end
 (*
-      | Start_game game_id -> begin
-            let now = Tezos.now in
-            match (Big_map.find_opt game_id store.games, Big_map.find_opt game_id store.stakes) with
-            | (None, _) -> (failwith "no game" : return)
-            | (_, None) -> (failwith "no stakes" : return)
-            | (Some game, Some stakes) -> begin
-              let addr = Tezos.sender in
-              assert (addr = game.admin);
-              assert (now >= game.start_time);
-              assert (not game.in_progress);
-              (* stakes is a list {
-                            address: address;
-                            timestamp: timestamp;
-                            stake: nat;
-              }
-              need to sort by stake and then timestamp
-              *)
-              if (Map.size stakes < 2n) then
-                 (failwith "not enough players" : return)
-              else begin
-                let f (x : Ts_array.el) (y : Ts_array.el) : bool = if x.stake = y.stake then x.timestamp > y.timestamp else x.stake > y.stake in
-                let players : address_array = Ts_array.to_address_array (Ts_array.sort_by f (Ts_array.from_addresses stakes)) in
-                let new_game = { game with in_progress = true; players = players; currently_holding = 0n } in
-                let new_games = Big_map.update game_id (Some new_game) store.games in
-                (* TODO send potato to player0 *)
-                let potato = Tezos.create_ticket ([] : duration list) 1n in
-                let op = Tezos.transaction ticket 0mutez
-                ( ([] : operation list), {store with games = new_games} )
-              end
-            end
-      end
 
       | Pass_potato game_id -> begin
             let now = Tezos.now in
