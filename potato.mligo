@@ -30,9 +30,9 @@ type game_data =
 type storage =
 [@layout:comb]
 {
-    game_data: game_data;
+    data: game_data;
 
-    tickets: (nat, tkt) big_map; (* one ticket holding N things per game *)
+    tickets: (game_id, tkt) big_map; (* one ticket holding N things per game *)
 }
 
 
@@ -48,7 +48,7 @@ type return = operation list * storage
 
 let main (action, store: parameter * storage) : return =
 begin
-    let {game_data = game_data; tickets = tickets} = store in
+    let {data = data; tickets = tickets} = store in
     ( match action with
       | New_game new_game_data -> begin
             let now = Tezos.now in
@@ -56,25 +56,40 @@ begin
             assert (Tezos.sender = admin);
             assert (now < start_time);
             assert (max_players > 2n);
-            let game_data : game_data = {
+            let data : game_data = {
                 game_id = game_id;
                 admin = admin;
                 start_time = start_time;
                 in_progress = false;
             } in
-            let ticket = Tezos.create_ticket game_id max_players in
-            let (_, tickets) = Big_map.get_and_update 0n (Some ticket) tickets in
-            ( ([] : operation list), { game_data = game_data; tickets=tickets } )
+            let ts = Tezos.create_ticket game_id max_players in
+            let (_, tickets) = Big_map.get_and_update game_id (Some ts) tickets in
+            ( ([] : operation list), { data = data; tickets=tickets } )
         end
 
-      | Buy_ticket_for_game _send_to -> begin
+      | Buy_ticket_for_game send_to -> begin
             let now = Tezos.now in
             let addr = Tezos.sender in
-            assert (addr <> game_data.admin);
-            assert (now < game_data.start_time);
-            assert (not game_data.in_progress);
-            ( ([] : operation list), { game_data = game_data; tickets=tickets } )
-
+            let purchase_price = Tezos.amount in
+            assert (addr <> data.admin);
+            assert (now < data.start_time);
+            assert (not data.in_progress);
+            assert (purchase_price = 1tez);
+            match ((Tezos.get_contract_opt data.admin) : unit contract option) with
+              | None -> (failwith "contract does not match" : return)
+              | Some c -> let op1 = Tezos.transaction () purchase_price c in
+                  let (t, tickets) = Big_map.get_and_update data.game_id (None : tkt option) tickets in
+                  match t with
+                    | None -> (failwith "ticket does not exist" : return)
+                    | Some t ->
+                      let ((_addr,(game_id, amt)), t) = Tezos.read_ticket t in
+                      match (game_id = data.game_id, Tezos.split_ticket t (1n, abs(amt-1n))) with
+                      | (false, _) -> (failwith "Wrong game" : return)
+                      | (true, None) -> (failwith "Out of tickets" : return)
+                      | (true, Some (t, ts)) ->
+                        let op2 = Tezos.transaction t 0mutez send_to in
+                        let (_, tickets) = Big_map.get_and_update data.game_id (Some ts) tickets in
+                        ([op1; op2], {data = data; tickets = tickets; })
       end
 (*
       | Start_game game_id -> begin
