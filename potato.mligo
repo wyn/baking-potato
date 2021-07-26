@@ -27,6 +27,7 @@ type game_data =
     in_progress: bool;
     num_players: nat;
     winner: address option;
+    game_over: bool;
 }
 
 type storage =
@@ -37,20 +38,13 @@ type storage =
     tickets: (game_id, tkt_book) big_map; (* one ticket holding N things per game *)
 }
 
-type pass_potato_data =
-[@layout:comb]
-{
-  potato: tkt_book;
-}
-
 type parameter =
 | New_game of new_game_data (* admin opens a new game for people to register up to *)
 | Buy_ticket_for_game of (tkt_book contract) (* non-admin register for a game by buying a ticket *)
 | Start_game (* admin starts the game *)
 | Pass_potato of tkt_book (* non-admin passes the potato (ticket) back *)
-(*
-| End_game of game_id (* winner is person who held the longest but gave back before game ended *)
-*)
+| End_game (* admin ends game, winner is last person to give back before end of game *)
+
 type return = operation list * storage
 
 let main (action, store: parameter * storage) : return =
@@ -71,6 +65,7 @@ begin
                 in_progress = false;
                 num_players = 0n;
                 winner = winner;
+                game_over = false;
             } in
             let ts = Tezos.create_ticket game_id max_players in
             let (_, tickets) = Big_map.get_and_update game_id (Some ts) tickets in
@@ -85,6 +80,7 @@ begin
             assert (now < data.start_time);
             assert (not data.in_progress);
             assert (purchase_price = 1tez);
+            assert (not data.game_over);
             match ((Tezos.get_contract_opt data.admin) : unit contract option) with
               | None -> (failwith "contract does not match" : return)
               | Some c -> let op1 = Tezos.transaction () purchase_price c in
@@ -108,6 +104,7 @@ begin
             assert (now >= data.start_time);
             assert (not data.in_progress);
             assert (data.num_players > 1n);
+            assert (not data.game_over);
             ( ([] : operation list), {data = {data with in_progress = true}; tickets = tickets} )
       end
 
@@ -118,6 +115,7 @@ begin
             assert (now >= data.start_time);
             assert (data.in_progress);
             assert (data.num_players > 1n);
+            assert (not data.game_over);
             let (t, tickets) = Big_map.get_and_update data.game_id (None : tkt_book option) tickets in
             match t with
               | None -> (failwith "ticket does not exist" : return)
@@ -131,23 +129,24 @@ begin
                   ( ([] : operation list), {data = {data with winner = (Some addr)}; tickets = tickets; } )
       end
 
-(*
-      | End_game game_id -> begin
+      | End_game -> begin
             let now = Tezos.now in
-            match (Big_map.find_opt game_id store.games) with
-            | None -> (failwith "no game" : return)
-            | Some game -> begin
-              let addr = Tezos.sender in
-              assert (addr = game.admin);
-              assert (now >= game.start_time);
-              assert (game.in_progress);
-              (* TODO work out rewards and distribute to players who held *)
-              (* delete the game data and stakes for this game *)
-              let games = Big_map.update game_id (None : game_data option) store.games in
-              let stakes = Big_map.update game_id (None : ts_stakes option) store.stakes in
-              ( ([] : operation list), {games=games; stakes=stakes})
-            end
-      end *)
+            let addr = Tezos.sender in
+            let winnings = Tezos.balance in
+            assert (addr = data.admin);
+            assert (now >= data.start_time);
+            assert (data.in_progress);
+            assert (not data.game_over);
+            let (_, tickets) = Big_map.get_and_update data.game_id (None : tkt_book option) tickets in
+            match data.winner with
+            | None -> ( ([] : operation list), {data = {data with game_over = true}; tickets = tickets})
+            | Some winner ->
+            match ((Tezos.get_contract_opt winner) : unit contract option) with
+              | None -> (failwith "contract does not match" : return)
+              | Some c -> let op1 = Tezos.transaction () winnings c in
+              ( [op1], {data = {data with game_over = true}; tickets = tickets})
+      end
+
     )
 
 end
