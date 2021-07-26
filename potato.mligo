@@ -3,11 +3,19 @@
    so need to split into current game and next game?
 *)
 
-(* potato is a ticket holding the durations as a nat
-   gets passed around and the nat increases
+(* potato is a ticket holding the game ID as string
+   each one gets passed to players at start,
+   then passed back to try and win
 *)
 type game_id = string
-type tkt_book = game_id ticket
+type game =
+[@layout:comb]
+{
+  game_id: game_id;
+  loser: bool;
+}
+
+type tkt_book = game ticket
 
 type new_game_data =
 [@layout:comb]
@@ -35,7 +43,7 @@ type storage =
 {
     data: game_data;
 
-    tickets: (game_id, tkt_book) big_map; (* one ticket holding N things per game *)
+    tickets: (game_id, tkt_book) big_map; (* one ticket book holding N things per game *)
 }
 
 type parameter =
@@ -67,7 +75,8 @@ begin
                 winner = winner;
                 game_over = false;
             } in
-            let ts = Tezos.create_ticket game_id max_players in
+            let game = {game_id = game_id; loser = true} in
+            let ts = Tezos.create_ticket game max_players in
             let (_, tickets) = Big_map.get_and_update game_id (Some ts) tickets in
             ( ([] : operation list), { data = data; tickets=tickets } )
         end
@@ -88,8 +97,8 @@ begin
                   match t with
                     | None -> (failwith "ticket does not exist" : return)
                     | Some t ->
-                      let ((_addr,(game_id, amt)), t) = Tezos.read_ticket t in
-                      match (game_id = data.game_id, Tezos.split_ticket t (1n, abs(amt-1n))) with
+                      let ((_addr,(game, amt)), t) = Tezos.read_ticket t in
+                      match (game.game_id = data.game_id, Tezos.split_ticket t (1n, abs(amt-1n))) with
                       | (false, _) -> (failwith "Wrong game" : return)
                       | (true, None) -> (failwith "Out of tickets" : return)
                       | (true, Some (t, ts)) ->
@@ -120,8 +129,8 @@ begin
             match t with
               | None -> (failwith "ticket does not exist" : return)
               | Some t ->
-                let ((_addr,(game_id, _amt)), t) = Tezos.read_ticket t in
-                match (game_id = data.game_id, Tezos.join_tickets (potato, t)) with
+                let ((_addr,(game, _amt)), t) = Tezos.read_ticket t in
+                match (game.game_id = data.game_id, Tezos.join_tickets (potato, t)) with
                 | (false, _) -> (failwith "Wrong game" : return)
                 | (true, None) -> (failwith "Wrong game" : return)
                 | (true, Some ts) ->
