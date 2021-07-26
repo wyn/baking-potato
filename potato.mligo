@@ -147,13 +147,13 @@ begin
             assert (data.in_progress);
             assert (not data.game_over);
             let (_, tickets) = Big_map.get_and_update data.game_id (None : tkt_book option) tickets in
-            match data.winner with
-            | None -> ( ([] : operation list), {data = {data with game_over = true}; tickets = tickets})
-            | Some winner ->
-            match ((Tezos.get_contract_opt winner) : unit contract option) with
-              | None -> (failwith "contract does not match" : return)
-              | Some c -> let op1 = Tezos.transaction () winnings c in
-              ( [op1], {data = {data with game_over = true}; tickets = tickets})
+            match (data.winner) with
+              | None -> ( ([] : operation list), {data = {data with game_over = true}; tickets = tickets})
+              | Some winner ->
+                match ((Tezos.get_contract_opt winner) : unit contract option) with
+                  | None -> (failwith "contract does not match" : return)
+                  | Some c -> let op1 = Tezos.transaction () winnings c in
+                    ( [op1], {data = {data with game_over = true}; tickets = tickets})
       end
 
     )
