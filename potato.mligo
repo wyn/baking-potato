@@ -175,12 +175,12 @@ begin
             assert (Tezos.sender = admin);
             assert (not Big_map.mem game_id store.games);
             assert (now < start_time);
-            let players : address_array = Map.empty in
+            let no_players : address_array = Map.empty in
             let game_data : game_data = {
                 admin = admin;
                 start_time = start_time;
                 in_progress = false;
-                players = players;
+                players = no_players;
                 currently_holding = 0n;
             } in
             let new_games = Big_map.add game_id game_data store.games in
@@ -202,13 +202,13 @@ begin
                   | Some stakes -> begin
                     let n = Map.size stakes in
                     assert (n < _MAX_PLAYERS);
-                    let f (acc, kyvl : ts_stakes * (address * Ts_stake.t)) : ts_stakes =
+                    let merge_and_add_stakes (acc, kyvl : ts_stakes * (address * Ts_stake.t)) : ts_stakes =
                         let (addr_, ts_) = kyvl in
                         match Map.find_opt addr_ acc with
                         | Some ts -> let ts_merged = Ts_stake.add ts_ ts in Map.update addr_ ts_merged acc
                         | None -> Map.add addr_ ts_ acc
                     in
-                    Map.fold f stakes init
+                    Map.fold merge_and_add_stakes stakes init
                   end
               in
               let new_stakes = Big_map.update game_id (Some new_stakes) store.stakes in
@@ -241,6 +241,8 @@ begin
                 let new_game = { game with in_progress = true; players = players; currently_holding = 0n } in
                 let new_games = Big_map.update game_id (Some new_game) store.games in
                 (* TODO send potato to player0 *)
+                let potato = Tezos.create_ticket ([] : duration list) 1n in
+                let op = Tezos.transaction ticket 0mutez
                 ( ([] : operation list), {store with games = new_games} )
               end
             end
