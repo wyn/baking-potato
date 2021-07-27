@@ -2,7 +2,7 @@
 import unittest
 import os.path
 import datetime
-from pytezos import ContractInterface
+from pytezos import ContractInterface, pytezos as ptz
 from pytezos.sandbox.node import SandboxedNodeTestCase
 from pytezos.contract.result import ContractCallResult
 
@@ -19,7 +19,7 @@ class SandboxedContractTest(SandboxedNodeTestCase):
         # Originate contract with initial storage
         contract = ContractInterface.from_file(os.path.join(BUILD_DIR, "potato.tz"))
         opg = contract.using(shell=self.get_node_url(), key='bootstrap1').originate(initial_storage=None)
-        opg = opg.fill().sign().inject()3
+        opg = opg.fill().sign().inject()
 
         self.bake_block()
 
@@ -32,21 +32,33 @@ class SandboxedContractTest(SandboxedNodeTestCase):
 
         # Perform real contract call
         import pudb; pu.db
+        ts = ptz.now()
         new_game = dict(
+            game_id="first_game",
             admin=originated_contract.default.address,
-            start_time=datetime.datetime.now().toordinal(),
-            game_id="first_game"
+            start_time=ts,
+            max_players=10,
         )
         call = originated_contract.default(new_game=new_game)
-        opg = call.inject()
+        opg = call.send()
 
         self.bake_block()
 
         # Get injected operation and convert to ContractCallResult
-        opg = client.shell.blocks['head':].find_operation(opg['hash'])
+        opg = client.shell.blocks['head':].find_operation(opg.hash())
         result = ContractCallResult.from_operation_group(opg)[0]
+        expected = {'prim': 'Pair',
+                    'args': [{'prim': 'Some',
+                              'args': [[{'string': 'first_game'},
+                                        {'bytes': '000002298c03ed7d454a101eb7022bc95f7e5f41ac78'},
+                                        {'int': str(ts)},
+                                        {'prim': 'False'},
+                                        {'int': '0'},
+                                        {'prim': 'None'},
+                                        {'prim': 'False'}]]},
+                             {'int': '0'}]}
 
-        self.assertEqual({'string': 'foobar'}, result.storage)
+        self.assertDictEqual(expected, result.storage)
 
 
 if __name__ == "__main__":
