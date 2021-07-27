@@ -25,6 +25,11 @@ module TicketBook = struct
         let (_, t) = Big_map.get_and_update game_id (Some tkt) t in
         t
 
+    let get (game_id : game_id) (t : t) : (tkt option)*t =
+        let (tkt, t) = Big_map.get_and_update game_id (None : tkt option) t in
+        (tkt, t)
+
+
 end
 
 type new_game_data =

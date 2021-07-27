@@ -63,7 +63,7 @@ begin
                 match ((Tezos.get_contract_opt data.admin) : unit contract option) with
                   | None -> (failwith "contract does not match" : return)
                   | Some c -> let op1 = Tezos.transaction () purchase_price c in
-                      let (t, tickets) = Big_map.get_and_update data.game_id (None : TicketBook.tkt option) tickets in
+                      let (t, tickets) = TicketBook.get data.game_id tickets in
                       match t with
                         | None -> (failwith "ticket does not exist" : return)
                         | Some t ->
