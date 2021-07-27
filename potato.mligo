@@ -1,61 +1,30 @@
+#if !POTATO
+#define POTATO
+
+#include "types.mligo"
 
 (* ok so cant have big maps inside main storage big map
    so need to split into current game and next game?
 *)
 
-(* potato is a ticket holding the game ID as string
-   each one gets passed to players at start,
-   then passed back to try and win
-*)
-type game_id = string
-type game =
-[@layout:comb]
-{
-  game_id: game_id;
-  loser: bool;
-}
-
-type tkt_book = game ticket
-
-type new_game_data =
-[@layout:comb]
-{
-    game_id: game_id;
-    admin: address;
-    start_time: timestamp; (* when the game will start *)
-    max_players: nat; (* max number players *)
-}
-
-type game_data =
-[@layout:comb]
-{
-    game_id: game_id; (* this game *)
-    admin: address;
-    start_time: timestamp; (* when the game will start *)
-    in_progress: bool;
-    num_players: nat;
-    winner: address option;
-    game_over: bool;
-}
-
-type storage =
+type game_storage =
 [@layout:comb]
 {
     data: game_data option;
 
-    tickets: (game_id, tkt_book) big_map; (* one ticket book holding N things per game *)
+    tickets: TicketBook.t; (* one ticket book holding N things per game *)
 }
 
 type parameter =
 | New_game of new_game_data (* admin opens a new game for people to register up to *)
-| Buy_ticket_for_game of (tkt_book contract) (* non-admin register for a game by buying a ticket *)
+| Buy_ticket_for_game of (TicketBook.tkt contract) (* non-admin register for a game by buying a ticket *)
 | Start_game (* admin starts the game *)
-| Pass_potato of tkt_book (* non-admin passes the potato (ticket) back *)
+| Pass_potato of TicketBook.tkt (* non-admin passes the potato (ticket) back *)
 | End_game (* admin ends game, winner is last person to give back before end of game *)
 
-type return = operation list * storage
+type return = operation list * game_storage
 
-let main (action, store: parameter * storage) : return =
+let main (action, store: parameter * game_storage) : return =
 begin
     let {data = data; tickets = tickets} = store in
     ( match action with
@@ -75,9 +44,7 @@ begin
                 winner = winner;
                 game_over = false;
             } in
-            let game = {game_id = game_id; loser = true} in
-            let ts = Tezos.create_ticket game max_players in
-            let (_, tickets) = Big_map.get_and_update game_id (Some ts) tickets in
+            let tickets = TicketBook.update game_id max_players tickets in
             ( ([] : operation list), { data = Some data; tickets=tickets } )
         end
 
@@ -96,7 +63,7 @@ begin
                 match ((Tezos.get_contract_opt data.admin) : unit contract option) with
                   | None -> (failwith "contract does not match" : return)
                   | Some c -> let op1 = Tezos.transaction () purchase_price c in
-                      let (t, tickets) = Big_map.get_and_update data.game_id (None : tkt_book option) tickets in
+                      let (t, tickets) = Big_map.get_and_update data.game_id (None : TicketBook.tkt option) tickets in
                       match t with
                         | None -> (failwith "ticket does not exist" : return)
                         | Some t ->
@@ -137,7 +104,7 @@ begin
                 assert (data.in_progress);
                 assert (data.num_players > 1n);
                 assert (not data.game_over);
-                let (t, tickets) = Big_map.get_and_update data.game_id (None : tkt_book option) tickets in
+                let (t, tickets) = Big_map.get_and_update data.game_id (None : TicketBook.tkt option) tickets in
                 match t with
                   | None -> (failwith "ticket does not exist" : return)
                   | Some t ->
@@ -162,7 +129,7 @@ begin
                 assert (now >= data.start_time);
                 assert (data.in_progress);
                 assert (not data.game_over);
-                let (_, tickets) = Big_map.get_and_update data.game_id (None : tkt_book option) tickets in
+                let (_, tickets) = Big_map.get_and_update data.game_id (None : TicketBook.tkt option) tickets in
                 match (data.winner) with
                   | None -> ( ([] : operation list), {data = Some {data with game_over = true}; tickets = tickets})
                   | Some winner ->
@@ -202,7 +169,7 @@ let test =
         winner = (None : address option);
         game_over = false;
     } in
-    let init_tickets : (game_id, tkt_book) big_map = Big_map.empty in
+    let init_tickets : (game_id, TicketBook.tkt) big_map = Big_map.empty in
     let init_storage = { data = (None : game_data option); tickets = init_tickets } in
     let (taddr, _, _) = Test.originate main init_storage 0tez in
     let actual = Test.get_storage taddr in
@@ -221,3 +188,4 @@ let test =
     let _ = _check_game_data actual.data init_data in
     ()
 *)
+#endif
