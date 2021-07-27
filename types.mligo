@@ -19,7 +19,7 @@ module TicketBook = struct
 
     let empty : t = Big_map.empty
 
-    let update (game_id : game_id) (max_players : nat) (t : t) : t =
+    let create_with (game_id : game_id) (max_players : nat) (t : t) : t =
         let game = {game_id = game_id; loser = true} in
         let tkt = Tezos.create_ticket game max_players in
         let (_, t) = Big_map.get_and_update game_id (Some tkt) t in

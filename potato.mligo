@@ -44,7 +44,7 @@ begin
                 winner = winner;
                 game_over = false;
             } in
-            let tickets = TicketBook.update game_id max_players tickets in
+            let tickets = TicketBook.create_with game_id max_players tickets in
             ( ([] : operation list), { data = Some data; tickets=tickets } )
         end
 
