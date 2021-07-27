@@ -31,13 +31,13 @@ begin
       | New_game new_game_data -> begin
             let now = Tezos.now in
             let {game_id = game_id; admin = admin; start_time = start_time; max_players = max_players; } = new_game_data in
-            (*assert (Tezos.sender = admin);*)
+            assert (Tezos.sender = admin);
             assert (now < start_time);
             assert (max_players > 2n);
             let winner : address option = None in
             let data : game_data = {
                 game_id = game_id;
-                admin = Tezos.sender;
+                admin = admin;
                 start_time = start_time;
                 in_progress = false;
                 num_players = 0n;

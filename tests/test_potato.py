@@ -33,9 +33,10 @@ class SandboxedContractTest(SandboxedNodeTestCase):
         # Perform real contract call
         import pudb; pu.db
         ts = ptz.now()
+        sender = client.key.public_key_hash() #originated_contract.default.address
         new_game = dict(
             game_id="first_game",
-            admin=originated_contract.default.address,
+            admin=sender,
             start_time=ts,
             max_players=10,
         )
