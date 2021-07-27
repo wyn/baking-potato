@@ -63,17 +63,17 @@ begin
                 match ((Tezos.get_contract_opt data.admin) : unit contract option) with
                   | None -> (failwith "contract does not match" : return)
                   | Some c -> let op1 = Tezos.transaction () purchase_price c in
-                      let (t, tickets) = TicketBook.get data.game_id tickets in
-                      match t with
+                      let (tkt, tickets) = TicketBook.get data.game_id tickets in
+                      match tkt with
                         | None -> (failwith "ticket does not exist" : return)
-                        | Some t ->
-                          let ((_addr,(game, amt)), t) = Tezos.read_ticket t in
-                          match (game.game_id = data.game_id, Tezos.split_ticket t (1n, abs(amt-1n))) with
+                        | Some tkt ->
+                          let ((_addr,(game, amt)), tkt) = Tezos.read_ticket tkt in
+                          match (game.game_id = data.game_id, Tezos.split_ticket tkt (1n, abs(amt-1n))) with
                           | (false, _) -> (failwith "Wrong game" : return)
                           | (true, None) -> (failwith "Out of tickets" : return)
-                          | (true, Some (t, ts)) ->
-                            let op2 = Tezos.transaction t 0mutez send_to in
-                            let (_, tickets) = Big_map.get_and_update data.game_id (Some ts) tickets in
+                          | (true, Some (tkt, book)) ->
+                            let op2 = Tezos.transaction tkt 0mutez send_to in
+                            let (_, tickets) = Big_map.get_and_update data.game_id (Some book) tickets in
                             ([op1; op2], {data = Some {data with num_players = data.num_players + 1n}; tickets = tickets; })
             end
       end
@@ -104,16 +104,16 @@ begin
                 assert (data.in_progress);
                 assert (data.num_players > 1n);
                 assert (not data.game_over);
-                let (t, tickets) = Big_map.get_and_update data.game_id (None : TicketBook.tkt option) tickets in
-                match t with
+                let (tkt, tickets) = TicketBook.get data.game_id tickets in
+                match tkt with
                   | None -> (failwith "ticket does not exist" : return)
-                  | Some t ->
-                    let ((_addr,(game, _amt)), t) = Tezos.read_ticket t in
-                    match (game.game_id = data.game_id, Tezos.join_tickets (potato, t)) with
+                  | Some tkt ->
+                    let ((_addr,(game, _amt)), tkt) = Tezos.read_ticket tkt in
+                    match (game.game_id = data.game_id, Tezos.join_tickets (potato, tkt)) with
                     | (false, _) -> (failwith "Wrong game" : return)
                     | (true, None) -> (failwith "Wrong game" : return)
-                    | (true, Some ts) ->
-                      let (_, tickets) = Big_map.get_and_update data.game_id (Some ts) tickets in
+                    | (true, Some book) ->
+                      let (_, tickets) = Big_map.get_and_update data.game_id (Some book) tickets in
                       ( ([] : operation list), {data = Some {data with winner = (Some addr)}; tickets = tickets; } )
             end
       end
@@ -129,7 +129,7 @@ begin
                 assert (now >= data.start_time);
                 assert (data.in_progress);
                 assert (not data.game_over);
-                let (_, tickets) = Big_map.get_and_update data.game_id (None : TicketBook.tkt option) tickets in
+                let (_, tickets) = TicketBook.get data.game_id tickets in
                 match (data.winner) with
                   | None -> ( ([] : operation list), {data = Some {data with game_over = true}; tickets = tickets})
                   | Some winner ->
