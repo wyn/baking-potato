@@ -10,15 +10,17 @@ BUILD_DIR = os.path.join(os.path.dirname(__file__), "..", "build")
 
 class SandboxedContractTest(SandboxedNodeTestCase):
 
-    def test_deploy_contract(self):
+    def setUp(self):
+        self.maxDiff = None
 
+    def _originate(self, initial_storage):
         # Create client
         client = self.client.using(key='bootstrap1')
         client.reveal()
 
         # Originate contract with initial storage
         contract = ContractInterface.from_file(os.path.join(BUILD_DIR, "potato.tz"))
-        opg = contract.using(shell=self.get_node_url(), key='bootstrap1').originate(initial_storage=None)
+        opg = contract.using(shell=self.get_node_url(), key='bootstrap1').originate(initial_storage=initial_storage)
         opg = opg.fill().sign().inject()
 
         self.bake_block()
@@ -29,9 +31,11 @@ class SandboxedContractTest(SandboxedNodeTestCase):
 
         # Load originated contract from blockchain
         originated_contract = client.contract(contract_address).using(shell=self.get_node_url(), key='bootstrap1')
+        return client, originated_contract
 
+    def test_new_game_storage(self):
+        client, originated_contract = self._originate(None)
         # Perform real contract call
-        import pudb; pu.db
         ts = ptz.now()
         sender = client.key.public_key_hash() #originated_contract.default.address
         new_game = dict(
@@ -60,6 +64,7 @@ class SandboxedContractTest(SandboxedNodeTestCase):
                              {'int': '0'}]}
 
         self.assertDictEqual(expected, result.storage)
+
 
 
 if __name__ == "__main__":

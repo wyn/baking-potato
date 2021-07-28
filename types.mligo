@@ -29,6 +29,22 @@ module TicketBook = struct
         let (tkt, t) = Big_map.get_and_update game_id (None : tkt option) t in
         (tkt, t)
 
+    let join_key (game_id : game_id) : string = game_id ^ "_JOIN"
+
+    let join (game_id : game_id) (t : t) : t =
+        let (tkt, t) = Big_map.get_and_update game_id (None : tkt option) t in
+        let (potato, t) = Big_map.get_and_update (join_key game_id) (None : tkt option) t in
+        match (tkt, potato) with
+          | (None, _) -> (failwith "ticket does not exist" : t)
+          | (_, None) -> (failwith "join ticket does not exist" : t)
+          | (Some tkt, Some potato) -> begin
+            match Tezos.join_tickets (tkt, potato) with
+            | None -> (failwith "Wrong game" : t)
+            | Some book ->
+              let (_, t) = Big_map.get_and_update game_id (Some book) t in
+              t
+          end
+
 end
 
 type new_game_data =
