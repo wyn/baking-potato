@@ -1,6 +1,7 @@
 #if !POTATO
 #define POTATO
 
+#include "thirdparty/fa2/shared/fa2/fa2_interface.mligo"
 #include "types.mligo"
 
 (* ok so cant have big maps inside main storage big map
