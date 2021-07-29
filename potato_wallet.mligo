@@ -104,4 +104,19 @@ let main (arg : parameter * storage) : return =
     )
   end
 
+
+(* (Pair "tz1YPSCGWXwBdTncK2aCctSZAXWvGsGwVJqU" {} None {}) *)
+let sample_storage : storage = {
+  admin = ("tz1YPSCGWXwBdTncK2aCctSZAXWvGsGwVJqU" : address);
+  tickets = TicketBook.empty;
+  current_game_id = (None : TicketBook.game_id option);
+  token_metadata = (Big_map.empty : (TicketBook.game_id, (TicketBook.game_id * metadata)) big_map);
+(*  metadata  = Big_map.literal [
+    ("", Bytes.pack "tezos-storage:content" );
+    (* ("", 0x74657a6f732d73746f726167653a636f6e74656e74); *)
+    ("content", 0x00) (* bytes encoded UTF-8 JSON *)
+  ];*)
+}
+
+
 #endif

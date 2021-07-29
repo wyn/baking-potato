@@ -145,6 +145,13 @@ begin
 
 end
 
+(* (Pair None {}) *)
+let sample_storage : game_storage = {
+    data = (None : game_data option);
+    tickets = TicketBook.empty;
+}
+
+
 (*
 
 
