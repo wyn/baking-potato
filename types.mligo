@@ -6,7 +6,7 @@
 *)
 
 module TicketBook = struct
-    type game_id = string
+    type game_id = nat
     type game =
     [@layout:comb]
     {
@@ -29,7 +29,14 @@ module TicketBook = struct
         let (tkt, t) = Big_map.get_and_update game_id (None : tkt option) t in
         (tkt, t)
 
-    let join_key (game_id : game_id) : string = game_id ^ "_JOIN"
+    let burn (game_id : game_id) (t : t) : t =
+        let t = Big_map.update game_id (None : tkt option) t in
+        t
+
+    let next_game (game_id : game_id) : game_id = game_id + 1n
+
+    (*
+    let join_key : int = -1
 
     let join (game_id : game_id) (t : t) : t =
         let (tkt, t) = Big_map.get_and_update game_id (None : tkt option) t in
@@ -44,7 +51,7 @@ module TicketBook = struct
               let (_, t) = Big_map.get_and_update game_id (Some book) t in
               t
           end
-
+          *)
 end
 
 type new_game_data =
