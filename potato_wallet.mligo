@@ -51,17 +51,27 @@ let main (arg : parameter * storage) : return =
         assert (qty >= 1n);
         (* TODO check if already have one for this game_id and join it if so *)
         let (_, tickets) = Big_map.get_and_update game.game_id (Some ticket) tickets in
-        (([] : operation list), {admin = admin; tickets = tickets; current_game_id = (Some game.game_id); token_metadata = token_metadata})
+        (([] : operation list), {
+             admin = admin;
+             tickets = tickets;
+             current_game_id = (Some game.game_id);
+             token_metadata = token_metadata
+        })
         end
 
       | Send send -> begin
         (*assert (Tezos.sender = admin) ;*)
         let (ticket, tickets) = TicketBook.get send.game_id tickets in
         ( match ticket with
-          | None -> (failwith "no in game" : return)
+          | None -> (failwith "not in game" : return)
           | Some ticket ->
               let op = Tezos.transaction ticket 0mutez send.destination in
-              ([op], {admin = admin; tickets = tickets; current_game_id = (None : TicketBook.game_id option); token_metadata = token_metadata})
+              ([op], {
+                  admin = admin;
+                  tickets = tickets;
+                  current_game_id = (None : TicketBook.game_id option);
+                  token_metadata = token_metadata
+              })
         )
       end
 
@@ -83,7 +93,12 @@ let main (arg : parameter * storage) : return =
         | None -> (failwith "not in game" : return)
         | Some tkt ->
           let (_, tickets) = Big_map.get_and_update game_id (Some tkt) tickets in
-          (([] : operation list), {admin = admin; tickets = tickets; current_game_id = (Some game_id); token_metadata = token_metadata})
+          (([] : operation list), {
+               admin = admin;
+               tickets = tickets;
+               current_game_id = (Some game_id);
+               token_metadata = token_metadata
+          })
       end
 
     )
