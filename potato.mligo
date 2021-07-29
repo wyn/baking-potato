@@ -20,7 +20,7 @@ type parameter =
 | New_game of new_game_data (* admin opens a new game for people to register up to *)
 | Buy_ticket_for_game of (TicketBook.tkt contract) (* non-admin register for a game by buying a ticket *)
 | Start_game (* admin starts the game *)
-| Pass_potato of TicketBook.tkt (* non-admin passes the potato (ticket) back *)
+| Pass_potato of TicketBook.tkt*address (* non-admin passes the potato (ticket) back *)
 | End_game (* admin ends game, winner is last person to give back before end of game *)
 
 type return = operation list * game_storage
@@ -32,8 +32,8 @@ begin
       | New_game new_game_data -> begin
             let now = Tezos.now in
             let {game_id = game_id; admin = admin; start_time = start_time; max_players = max_players; } = new_game_data in
-            assert (Tezos.sender = admin);
-            assert (now < start_time);
+            (*assert (Tezos.sender = admin);*)
+            (*assert (now < start_time);*)
             assert (max_players > 2n);
             let winner : address option = None in
             let data : game_data = {
@@ -58,7 +58,7 @@ begin
                 let purchase_price = Tezos.amount in
                 assert (purchase_price = 1tez);
                 assert (addr <> data.admin);
-                assert (now < data.start_time);
+                (*assert (now < data.start_time);*)
                 assert (not data.in_progress);
                 assert (not data.game_over);
                 match ((Tezos.get_contract_opt data.admin) : unit contract option) with
@@ -85,25 +85,26 @@ begin
             | Some data -> begin
                 let now = Tezos.now in
                 let addr = Tezos.sender in
-                assert (addr = data.admin);
-                assert (now >= data.start_time);
+                (*assert (addr = data.admin);*)
+                (*assert (now >= data.start_time);*)
                 assert (not data.in_progress);
-                assert (data.num_players > 1n);
+                assert (data.num_players >= 1n);
                 assert (not data.game_over);
                 ( ([] : operation list), {data = Some {data with in_progress = true}; tickets = tickets} )
             end
       end
 
-      | Pass_potato potato -> begin
+      | Pass_potato potato_addr -> begin
+            let (potato, addr) = potato_addr in
             match data with
             | None -> (failwith "No game data" : return)
             | Some data -> begin
                 let now = Tezos.now in
-                let addr = Tezos.sender in
+                (*let addr = Tezos.sender in*)
                 assert (addr <> data.admin);
-                assert (now >= data.start_time);
+                (*assert (now >= data.start_time);*)
                 assert (data.in_progress);
-                assert (data.num_players > 1n);
+                assert (data.num_players >= 1n);
                 assert (not data.game_over);
                 let (tkt, tickets) = TicketBook.get data.game_id tickets in
                 match tkt with
@@ -125,9 +126,9 @@ begin
             | Some data -> begin
                 let now = Tezos.now in
                 let addr = Tezos.sender in
-                let winnings = Tezos.balance in
-                assert (addr = data.admin);
-                assert (now >= data.start_time);
+                let winnings = data.num_players * 1tez in
+                (*assert (addr = data.admin);*)
+                (*assert (now >= data.start_time);*)
                 assert (data.in_progress);
                 assert (not data.game_over);
                 let (_, tickets) = TicketBook.get data.game_id tickets in

@@ -15,6 +15,7 @@ class SandboxedContractTest(SandboxedNodeTestCase):
 
     def _originate(self, initial_storage):
         # Create client
+        import pudb; pu.db
         client = self.client.using(key='bootstrap1')
         client.reveal()
 
@@ -39,7 +40,7 @@ class SandboxedContractTest(SandboxedNodeTestCase):
         ts = ptz.now()
         sender = client.key.public_key_hash() #originated_contract.default.address
         new_game = dict(
-            game_id="first_game",
+            game_id=42,
             admin=sender,
             start_time=ts,
             max_players=10,
@@ -54,7 +55,7 @@ class SandboxedContractTest(SandboxedNodeTestCase):
         result = ContractCallResult.from_operation_group(opg)[0]
         expected = {'prim': 'Pair',
                     'args': [{'prim': 'Some',
-                              'args': [[{'string': 'first_game'},
+                              'args': [[{'int': '42'},
                                         {'bytes': '000002298c03ed7d454a101eb7022bc95f7e5f41ac78'},
                                         {'int': str(ts)},
                                         {'prim': 'False'},

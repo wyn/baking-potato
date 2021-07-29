@@ -5,7 +5,7 @@
 
 type send_parameter =
   [@layout:comb]
-  {destination : TicketBook.tkt contract;
+  {destination : (TicketBook.tkt*address) contract;
    game_id : TicketBook.game_id}
 
 type receive_parameter = TicketBook.tkt
@@ -61,11 +61,12 @@ let main (arg : parameter * storage) : return =
 
       | Send send -> begin
         (*assert (Tezos.sender = admin) ;*)
+        let addr = Tezos.sender in
         let (ticket, tickets) = TicketBook.get send.game_id tickets in
         ( match ticket with
           | None -> (failwith "not in game" : return)
           | Some ticket ->
-              let op = Tezos.transaction ticket 0mutez send.destination in
+              let op = Tezos.transaction (ticket, addr) 0mutez send.destination in
               ([op], {
                   admin = admin;
                   tickets = tickets;
@@ -105,9 +106,9 @@ let main (arg : parameter * storage) : return =
   end
 
 
-(* (Pair "tz1YPSCGWXwBdTncK2aCctSZAXWvGsGwVJqU" {} None {}) *)
+(* (Pair "tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb" {} None {}) *)
 let sample_storage : storage = {
-  admin = ("tz1YPSCGWXwBdTncK2aCctSZAXWvGsGwVJqU" : address);
+  admin = ("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb" : address);
   tickets = TicketBook.empty;
   current_game_id = (None : TicketBook.game_id option);
   token_metadata = (Big_map.empty : (TicketBook.game_id, (TicketBook.game_id * metadata)) big_map);
