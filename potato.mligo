@@ -56,7 +56,7 @@ begin
                 let now = Tezos.now in
                 let addr = Tezos.sender in
                 let purchase_price = Tezos.amount in
-                assert (purchase_price = 1tez);
+                assert (purchase_price = 10tez);
                 assert (addr <> data.admin);
                 (*assert (now < data.start_time);*)
                 assert (not data.in_progress);
@@ -123,7 +123,7 @@ begin
             | Some data -> begin
                 let now = Tezos.now in
                 let addr = Tezos.sender in
-                let winnings = data.num_players * 1tez in
+                let winnings = data.num_players * 10tez in
                 (*assert (addr = data.admin);*)
                 (*assert (now >= data.start_time);*)
                 assert (data.in_progress);
