@@ -1,4 +1,4 @@
-#if !POTATO
+cd #if !POTATO
 #define POTATO
 
 #include "thirdparty/fa2/shared/fa2/fa2_interface.mligo"
@@ -61,21 +61,18 @@ begin
                 (*assert (now < data.start_time);*)
                 assert (not data.in_progress);
                 assert (not data.game_over);
-                match ((Tezos.get_contract_opt data.admin) : unit contract option) with
-                  | None -> (failwith "contract does not match" : return)
-                  | Some c -> let op1 = Tezos.transaction () purchase_price c in
-                      let (tkt, tickets) = TicketBook.get data.game_id tickets in
-                      match tkt with
-                        | None -> (failwith "ticket does not exist" : return)
-                        | Some tkt ->
-                          let ((_addr,(game, amt)), tkt) = Tezos.read_ticket tkt in
-                          match (game.game_id = data.game_id, Tezos.split_ticket tkt (1n, abs(amt-1n))) with
-                          | (false, _) -> (failwith "Wrong game" : return)
-                          | (true, None) -> (failwith "Out of tickets" : return)
-                          | (true, Some (tkt, book)) ->
-                            let op2 = Tezos.transaction tkt 0mutez send_to in
-                            let (_, tickets) = Big_map.get_and_update data.game_id (Some book) tickets in
-                            ([op1; op2], {data = Some {data with num_players = data.num_players + 1n}; tickets = tickets; })
+                let (tkt, tickets) = TicketBook.get data.game_id tickets in
+                match tkt with
+                  | None -> (failwith "ticket does not exist" : return)
+                  | Some tkt ->
+                    let ((_addr,(game, amt)), tkt) = Tezos.read_ticket tkt in
+                    match (game.game_id = data.game_id, Tezos.split_ticket tkt (1n, abs(amt-1n))) with
+                    | (false, _) -> (failwith "Wrong game" : return)
+                    | (true, None) -> (failwith "Out of tickets" : return)
+                    | (true, Some (tkt, book)) ->
+                      let op = Tezos.transaction tkt 0mutez send_to in
+                      let (_, tickets) = Big_map.get_and_update data.game_id (Some book) tickets in
+                      ([op], {data = Some {data with num_players = data.num_players + 1n}; tickets = tickets; })
             end
       end
 
