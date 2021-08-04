@@ -90,6 +90,8 @@ type parameter =
 
 type return = operation list * game_storage
 
+type flattened = ((address*address*TicketBook.game_id), nat) map
+
 let main (action, store: parameter * game_storage) : return =
 begin
     let {data = data; tickets = tickets; next_game_id = next_game_id} = store in
@@ -97,23 +99,76 @@ begin
       (* FA2 spec relates to games *)
 
       | Transfer transfers -> begin
+
+          (* some quick checks before bigger stuff *)
+
+          let _all_token_ids_exist (acc, tdest : bool*transfer_destination) : bool =
+              acc && (Big_map.mem tdest.token_id data)
+          in
+
+          (* have to be ==0 or 1 as the game is like an NFT too *)
+          let _all_amounts_ok_pass1 (acc, tdest : bool*transfer_destination) : bool =
+              acc && (tdest.amount < 2n)
+          in
+
+          let quick_check (t : transfer) : unit =
+              let token_ids_ok = List.fold _all_token_ids_exist t.txs true in
+              let amounts_ok = List.fold _all_amounts_ok_pass1 t.txs true in
+              match (token_ids_ok, amounts_ok) with
+              | (true, true) -> () (* NOTE this needs to come first *)
+              | (false, _) -> (failwith "FA2_TOKEN_UNDEFINED" : unit)
+              | (_, false) -> (failwith "FA2_INSUFFICIENT_BALANCE" : unit)
+          in
+          let _u : unit = List.iter quick_check transfers in
+
+          let _flatten (from_ : address) (acc, tdest : flattened*transfer_destination) : flattened =
+              let key = (from_, tdest.to_, tdest.token_id) in
+              let amount_ = match Map.find_opt key acc with
+                  | Some amount_ -> amount_ + tdest.amount
+                  | None -> 0n
+              in
+              Map.update key (Some amount_) acc
+          in
+
+          let all_amounts = List.fold (
+                  fun (acc, t : flattened*transfer) -> List.fold (_flatten t.from_) t.txs acc
+              ) transfers (Map.empty : flattened)
+          in
+
+          let full_check ((from_, _to, game_id), amount_ : (address*address*TicketBook.game_id)*nat) : unit =
+              if amount_ > 1n then (failwith "FA2_INSUFFICIENT_BALANCE" : unit) else
+              match Big_map.find_opt game_id data with
+              | None -> (failwith "FA2_TOKEN_UNDEFINED" : unit)
+              | Some game ->
+                  if from_ <> game.admin then (failwith "FA2_NOT_OPERATOR" : unit) else
+                  ()
+          in
+          let _u : unit = Map.iter full_check all_amounts in
+
+          (* go over one more time to modify admin address *)
           (([] : operation list), {data = data; tickets = tickets; next_game_id = next_game_id})
       end
 
       | Balance_of bp -> begin
-        let _get_balance (req : balance_of_request) : balance_of_response =
-            let zero_balance = {request=req; balance=0n} in
-            let one_balance = {request=req; balance=1n} in
-            match Big_map.find_opt req.token_id data with
-            | Some game -> if req.owner = game.admin then one_balance else zero_balance
-            | None -> zero_balance
-        in
-        let resps = List.map _get_balance bp.requests in
-        let op = Tezos.transaction resps 0mutez bp.callback in
-        ([op], {data = data; tickets = tickets; next_game_id = next_game_id})
+          let _all_token_ids_exist (acc, req : bool*balance_of_request) : bool =
+              acc && (Big_map.mem req.token_id data)
+          in
+          let _get_balance (req : balance_of_request) : balance_of_response =
+              let zero_balance = {request=req; balance=0n} in
+              let one_balance = {request=req; balance=1n} in
+              match Big_map.find_opt req.token_id data with
+              | Some game -> if req.owner = game.admin then one_balance else zero_balance
+              | None -> zero_balance
+          in
+          match (List.fold _all_token_ids_exist bp.requests true) with
+          | false -> (failwith "FA2_TOKEN_UNDEFINED" : return)
+          | true ->
+              let resps = List.map _get_balance bp.requests in
+              let op = Tezos.transaction resps 0mutez bp.callback in
+              ([op], {data = data; tickets = tickets; next_game_id = next_game_id})
       end
 
-      | Update_operators _ -> (failwith "NOT IMPLEMENTED" : return)
+      | Update_operators _ -> (failwith "FA2_NOT_OPERATOR" : return)
 
       | New_game new_game_param -> begin
             (*let now = Tezos.now in*)
