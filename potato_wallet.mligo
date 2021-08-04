@@ -18,11 +18,11 @@ type hot_potato_param =
   }
 
 type parameter =
+  (* make a new game (minting?) *)
+  | HotPotato of hot_potato_param
   (* game ticket management *)
   | Receive of TicketBook.tkt
   | Send of send_param
-  (* make a new game (minting?) *)
-  | HotPotato of hot_potato_param
   (* not sure need this *)
   | SetCurrentGame of TicketBook.game_id
 
@@ -42,34 +42,29 @@ let main (arg : parameter * storage) : return =
     let (p, storage) = arg in
     let {admin = admin; tickets = tickets; current_game_id = current_game_id} = storage in
     ( match p with
-
-      (* FA2 spec relates to games *)
-(*
-      | Transfer transfers -> begin
-          (([] : operation list), {admin = admin; tickets = tickets; current_game_id = current_game_id})
-      end
-
-      | Balance_of bp -> begin
-        let _get_balance (req : balance_of_request) : balance_of_response =
-            let zero_balance = {request=req; balance=0n} in
-            let one_balance = {request=req; balance=1n} in
-            match Big_map.find_opt req.owner all_games with
-            | Some games -> if Set.mem req.token_id games then one_balance else zero_balance
-            | None -> zero_balance
+      (* Kick off a new game for people to buy into,
+         max_players denotes how many tickets in the ticket book
+         for this game_id - the tickets actually get minted by the potato contract,
+         that max limit is then enforced by the ticket semantics FOR EVER.
+         Wallet owner becomes admin for that game_id *)
+      | HotPotato hot_potato_param -> begin
+        assert (Tezos.sender = admin);
+        let new_game_param : new_game_param = {
+            admin = admin;
+            start_time = hot_potato_param.start_time;
+            max_players = hot_potato_param.max_players;
+        }
         in
-        let resps = List.map _get_balance bp.requests in
-        let op = Tezos.transaction resps 0mutez bp.callback in
+        let op = Tezos.transaction new_game_param 0mutez hot_potato_param.destination in
         ([op], {admin = admin; tickets = tickets; current_game_id = current_game_id})
       end
 
-      | Update_operators _ -> (failwith "NOT IMPLEMENTED" : return)
-*)
-      (* the rest relates to tickets in games *)
-
+      (* when receiving a ticket check whether this wallet has one similar and merge if nec *)
       | Receive ticket -> begin
         let ((_, (game, qty)), ticket) = Tezos.read_ticket ticket in
         assert (qty >= 1n);
-        (* TODO check if already have one for this game_id and join it if so *)
+        (* check if already have one for this game_id and join it if so *)
+        (* NOTE we also update the current_game_id pointer *)
         let (tkt, tickets) = Big_map.get_and_update game.game_id (None : TicketBook.tkt option) tickets in
         match tkt with
         | None ->
@@ -91,6 +86,10 @@ let main (arg : parameter * storage) : return =
                 })
         end
 
+      (* when sending a ticket back to the game, note self as the winner,
+         time ordering will work out who is the actual winner.
+         Anyone left holding a ticket after the game ends will have one that says 'loser',
+         anyone that managed to hand their's back will no longer have one - but there is only ever one winner *)
       | Send send -> begin
         (*assert (Tezos.sender = admin) ;*)
         let addr = Tezos.sender in
@@ -107,18 +106,7 @@ let main (arg : parameter * storage) : return =
         )
       end
 
-      | HotPotato hot_potato_param -> begin
-        assert (Tezos.sender = admin);
-        let new_game_param : new_game_param = {
-            admin = admin;
-            start_time = hot_potato_param.start_time;
-            max_players = hot_potato_param.max_players;
-        }
-        in
-        let op = Tezos.transaction new_game_param 0mutez hot_potato_param.destination in
-        ([op], {admin = admin; tickets = tickets; current_game_id = current_game_id})
-      end
-
+      (* check if this wallet is playing in game_id and if so, set that to the current_game_id *)
       | SetCurrentGame game_id -> begin
         let (tkt, tickets) = TicketBook.get game_id tickets in
         match tkt with

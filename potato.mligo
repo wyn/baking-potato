@@ -8,6 +8,57 @@
    so need to split into current game and next game?
 *)
 
+(* FA2 stuff - FA2 token is the game itself, tickets take care of potato passing semantics *)
+type transfer_destination =
+[@layout:comb]
+{
+  to_ : address;
+  token_id : TicketBook.game_id;
+  amount : nat;
+}
+
+type transfer =
+[@layout:comb]
+{
+  from_ : address;
+  txs : transfer_destination list;
+}
+
+type balance_of_request =
+[@layout:comb]
+{
+  owner : address;
+  token_id : TicketBook.game_id;
+}
+
+type balance_of_response =
+[@layout:comb]
+{
+  request : balance_of_request;
+  balance : nat;
+}
+
+type balance_of_param =
+[@layout:comb]
+{
+  requests : balance_of_request list;
+  callback : (balance_of_response list) contract;
+}
+
+type operator_param =
+[@layout:comb]
+{
+  owner : address;
+  operator : address;
+  token_id : TicketBook.game_id;
+}
+
+type update_operator =
+  [@layout:comb]
+  | Add_operator of operator_param
+  | Remove_operator of operator_param
+
+
 type game_data =
 [@layout:comb]
 {
@@ -31,11 +82,15 @@ type game_storage =
 }
 
 type parameter =
-| New_game of new_game_param (* admin opens a new game for people to register up to *)
-| Buy_potato_for_game of buy_potato_param (* non-admin register for a game by buying a potato *)
-| Start_game of TicketBook.game_id (* admin starts the game *)
-| Pass_potato of pass_potato_param (* non-admin passes the potato (ticket) back *)
-| End_game of TicketBook.game_id (* admin ends game, winner is last person to give back before end of game *)
+    (* FA2 stuff first *)
+    (*| Transfer of transfer list
+    | Balance_of of balance_of_param
+    | Update_operators of update_operator list*)
+    | New_game of new_game_param (* admin opens a new game for people to register up to *)
+    | Buy_potato_for_game of buy_potato_param (* non-admin register for a game by buying a potato *)
+    | Start_game of TicketBook.game_id (* admin starts the game *)
+    | Pass_potato of pass_potato_param (* non-admin passes the potato (ticket) back *)
+    | End_game of TicketBook.game_id (* admin ends game, winner is last person to give back before end of game *)
 
 type return = operation list * game_storage
 
@@ -43,6 +98,27 @@ let main (action, store: parameter * game_storage) : return =
 begin
     let {data = data; tickets = tickets; next_game_id = next_game_id} = store in
     ( match action with
+      (* FA2 spec relates to games *)
+(*
+      | Transfer transfers -> begin
+          (([] : operation list), {admin = admin; tickets = tickets; current_game_id = current_game_id})
+      end
+
+      | Balance_of bp -> begin
+        let _get_balance (req : balance_of_request) : balance_of_response =
+            let zero_balance = {request=req; balance=0n} in
+            let one_balance = {request=req; balance=1n} in
+            match Big_map.find_opt req.owner all_games with
+            | Some games -> if Set.mem req.token_id games then one_balance else zero_balance
+            | None -> zero_balance
+        in
+        let resps = List.map _get_balance bp.requests in
+        let op = Tezos.transaction resps 0mutez bp.callback in
+        ([op], {admin = admin; tickets = tickets; current_game_id = current_game_id})
+      end
+
+      | Update_operators _ -> (failwith "NOT IMPLEMENTED" : return)
+*)
       | New_game new_game_param -> begin
             (*let now = Tezos.now in*)
             assert (not Big_map.mem next_game_id data);
