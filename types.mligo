@@ -74,4 +74,12 @@ type game_data =
     winner: address option;
     game_over: bool;
 }
+
+type pass_potato_param =
+[@layout:comb]
+{
+    ticket: TicketBook.tkt;
+    winner: address;
+}
+
 #endif

@@ -5,10 +5,8 @@
 
 type send_parameter =
   [@layout:comb]
-  {destination : (TicketBook.tkt*address) contract;
+  {destination : (pass_potato_param) contract;
    game_id : TicketBook.game_id}
-
-type receive_parameter = TicketBook.tkt
 
 type metadata = (string, bytes) map
 
@@ -24,7 +22,7 @@ type game_parameter =
   }
 
 type parameter =
-  | Receive of receive_parameter
+  | Receive of TicketBook.tkt
   | Send of send_parameter
   | HotPotato of game_parameter
   | SetCurrentGame of TicketBook.game_id
@@ -66,7 +64,7 @@ let main (arg : parameter * storage) : return =
         ( match ticket with
           | None -> (failwith "not in game" : return)
           | Some ticket ->
-              let op = Tezos.transaction (ticket, addr) 0mutez send.destination in
+              let op = Tezos.transaction {ticket=ticket; winner=addr} 0mutez send.destination in
               ([op], {
                   admin = admin;
                   tickets = tickets;

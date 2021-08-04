@@ -1,7 +1,7 @@
-cd #if !POTATO
+#if !POTATO
 #define POTATO
 
-#include "thirdparty/fa2/shared/fa2/fa2_interface.mligo"
+(* #include "thirdparty/fa2/shared/fa2/fa2_interface.mligo" *)
 #include "types.mligo"
 
 (* ok so cant have big maps inside main storage big map
@@ -20,7 +20,7 @@ type parameter =
 | New_game of new_game_data (* admin opens a new game for people to register up to *)
 | Buy_ticket_for_game of (TicketBook.tkt contract) (* non-admin register for a game by buying a ticket *)
 | Start_game (* admin starts the game *)
-| Pass_potato of TicketBook.tkt*address (* non-admin passes the potato (ticket) back *)
+| Pass_potato of pass_potato_param (* non-admin passes the potato (ticket) back *)
 | End_game (* admin ends game, winner is last person to give back before end of game *)
 
 type return = operation list * game_storage
@@ -30,7 +30,7 @@ begin
     let {data = data; tickets = tickets} = store in
     ( match action with
       | New_game new_game_data -> begin
-            let now = Tezos.now in
+            (*let now = Tezos.now in*)
             let {game_id = game_id; admin = admin; start_time = start_time; max_players = max_players; } = new_game_data in
             (*assert (Tezos.sender = admin);*)
             (*assert (now < start_time);*)
@@ -53,7 +53,7 @@ begin
             match data with
             | None -> (failwith "No game data" : return)
             | Some data -> begin
-                let now = Tezos.now in
+                (*let now = Tezos.now in*)
                 let addr = Tezos.sender in
                 let purchase_price = Tezos.amount in
                 assert (purchase_price = 10tez);
@@ -80,8 +80,8 @@ begin
             match data with
             | None -> (failwith "No game data" : return)
             | Some data -> begin
-                let now = Tezos.now in
-                let addr = Tezos.sender in
+                (*let now = Tezos.now in *)
+                (*let addr = Tezos.sender in *)
                 (*assert (addr = data.admin);*)
                 (*assert (now >= data.start_time);*)
                 assert (not data.in_progress);
@@ -91,14 +91,13 @@ begin
             end
       end
 
-      | Pass_potato potato_addr -> begin
-            let (potato, addr) = potato_addr in
+      | Pass_potato potato -> begin
+            let {ticket=ticket; winner=winner} = potato in
             match data with
             | None -> (failwith "No game data" : return)
             | Some data -> begin
-                let now = Tezos.now in
-                (*let addr = Tezos.sender in*)
-                assert (addr <> data.admin);
+                (*let now = Tezos.now in*)
+                assert (winner <> data.admin);
                 (*assert (now >= data.start_time);*)
                 assert (data.in_progress);
                 assert (data.num_players >= 1n);
@@ -108,12 +107,12 @@ begin
                   | None -> (failwith "ticket does not exist" : return)
                   | Some tkt ->
                     let ((_addr,(game, _amt)), tkt) = Tezos.read_ticket tkt in
-                    match (game.game_id = data.game_id, Tezos.join_tickets (potato, tkt)) with
+                    match (game.game_id = data.game_id, Tezos.join_tickets (ticket, tkt)) with
                     | (false, _) -> (failwith "Wrong game" : return)
                     | (true, None) -> (failwith "Wrong game" : return)
                     | (true, Some book) ->
                       let (_, tickets) = Big_map.get_and_update data.game_id (Some book) tickets in
-                      ( ([] : operation list), {data = Some {data with winner = (Some addr)}; tickets = tickets; } )
+                      ( ([] : operation list), {data = Some {data with winner = (Some winner)}; tickets = tickets; } )
             end
       end
 
@@ -121,8 +120,8 @@ begin
             match data with
             | None -> (failwith "No game data" : return)
             | Some data -> begin
-                let now = Tezos.now in
-                let addr = Tezos.sender in
+                (*let now = Tezos.now in*)
+                (*let addr = Tezos.sender in*)
                 let winnings = data.num_players * 10tez in
                 (*assert (addr = data.admin);*)
                 (*assert (now >= data.start_time);*)
