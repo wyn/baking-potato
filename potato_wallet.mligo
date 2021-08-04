@@ -110,11 +110,6 @@ let sample_storage : storage = {
   tickets = TicketBook.empty;
   current_game_id = (None : TicketBook.game_id option);
   token_metadata = (Big_map.empty : (TicketBook.game_id, (TicketBook.game_id * metadata)) big_map);
-(*  metadata  = Big_map.literal [
-    ("", Bytes.pack "tezos-storage:content" );
-    (* ("", 0x74657a6f732d73746f726167653a636f6e74656e74); *)
-    ("content", 0x00) (* bytes encoded UTF-8 JSON *)
-  ];*)
 }
 
 
