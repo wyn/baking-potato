@@ -1,12 +1,7 @@
 #if !POTATO
 #define POTATO
 
-(* #include "thirdparty/fa2/shared/fa2/fa2_interface.mligo" *)
 #include "types.mligo"
-
-(* ok so cant have big maps inside main storage big map
-   so need to split into current game and next game?
-*)
 
 (* FA2 stuff - FA2 token is the game itself, tickets take care of potato passing semantics *)
 type transfer_destination =
@@ -83,9 +78,10 @@ type game_storage =
 
 type parameter =
     (* FA2 stuff first *)
-    (*| Transfer of transfer list
+    | Transfer of transfer list
     | Balance_of of balance_of_param
-    | Update_operators of update_operator list*)
+    | Update_operators of update_operator list
+    (* potato ticket stuff *)
     | New_game of new_game_param (* admin opens a new game for people to register up to *)
     | Buy_potato_for_game of buy_potato_param (* non-admin register for a game by buying a potato *)
     | Start_game of TicketBook.game_id (* admin starts the game *)
@@ -99,26 +95,26 @@ begin
     let {data = data; tickets = tickets; next_game_id = next_game_id} = store in
     ( match action with
       (* FA2 spec relates to games *)
-(*
+
       | Transfer transfers -> begin
-          (([] : operation list), {admin = admin; tickets = tickets; current_game_id = current_game_id})
+          (([] : operation list), {data = data; tickets = tickets; next_game_id = next_game_id})
       end
 
       | Balance_of bp -> begin
         let _get_balance (req : balance_of_request) : balance_of_response =
             let zero_balance = {request=req; balance=0n} in
             let one_balance = {request=req; balance=1n} in
-            match Big_map.find_opt req.owner all_games with
-            | Some games -> if Set.mem req.token_id games then one_balance else zero_balance
+            match Big_map.find_opt req.token_id data with
+            | Some game -> if req.owner = game.admin then one_balance else zero_balance
             | None -> zero_balance
         in
         let resps = List.map _get_balance bp.requests in
         let op = Tezos.transaction resps 0mutez bp.callback in
-        ([op], {admin = admin; tickets = tickets; current_game_id = current_game_id})
+        ([op], {data = data; tickets = tickets; next_game_id = next_game_id})
       end
 
       | Update_operators _ -> (failwith "NOT IMPLEMENTED" : return)
-*)
+
       | New_game new_game_param -> begin
             (*let now = Tezos.now in*)
             assert (not Big_map.mem next_game_id data);
