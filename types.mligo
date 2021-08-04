@@ -1,8 +1,9 @@
 #if !TYPES
 #define TYPES
-(* potato is a ticket holding the game ID as string
+(* potato is a ticket holding the game ID as Nat and loser flag
    each one gets passed to players at start,
-   then passed back to try and win
+   then passed back to try and win,
+   last one to pass back before the game ends is the winner
 *)
 
 module TicketBook = struct
