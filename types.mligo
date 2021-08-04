@@ -55,25 +55,13 @@ module TicketBook = struct
           *)
 end
 
-type new_game_data =
+type new_game_param =
 [@layout:comb]
 {
     game_id: TicketBook.game_id;
     admin: address;
     start_time: timestamp; (* when the game will start *)
     max_players: nat; (* max number players *)
-}
-
-type game_data =
-[@layout:comb]
-{
-    game_id: TicketBook.game_id; (* this game *)
-    admin: address;
-    start_time: timestamp; (* when the game will start *)
-    in_progress: bool;
-    num_players: nat;
-    winner: address option;
-    game_over: bool;
 }
 
 type pass_potato_param =

@@ -8,6 +8,18 @@
    so need to split into current game and next game?
 *)
 
+type game_data =
+[@layout:comb]
+{
+    game_id: TicketBook.game_id; (* this game *)
+    admin: address;
+    start_time: timestamp; (* when the game will start *)
+    in_progress: bool;
+    num_players: nat; (* number of currently registered players *)
+    winner: address option;
+    game_over: bool;
+}
+
 type game_storage =
 [@layout:comb]
 {
@@ -17,7 +29,7 @@ type game_storage =
 }
 
 type parameter =
-| New_game of new_game_data (* admin opens a new game for people to register up to *)
+| New_game of new_game_param (* admin opens a new game for people to register up to *)
 | Buy_ticket_for_game of (TicketBook.tkt contract) (* non-admin register for a game by buying a ticket *)
 | Start_game (* admin starts the game *)
 | Pass_potato of pass_potato_param (* non-admin passes the potato (ticket) back *)
@@ -29,9 +41,9 @@ let main (action, store: parameter * game_storage) : return =
 begin
     let {data = data; tickets = tickets} = store in
     ( match action with
-      | New_game new_game_data -> begin
+      | New_game new_game_param -> begin
             (*let now = Tezos.now in*)
-            let {game_id = game_id; admin = admin; start_time = start_time; max_players = max_players; } = new_game_data in
+            let {game_id = game_id; admin = admin; start_time = start_time; max_players = max_players; } = new_game_param in
             (*assert (Tezos.sender = admin);*)
             (*assert (now < start_time);*)
             assert (max_players > 2n);
@@ -182,13 +194,13 @@ let test =
     let _ = assert (false = Big_map.mem "game01" actual.tickets) in
 
     let c = Test.to_contract taddr in
-    let new_game_data = {
+    let new_game_param = {
         game_id = "game01";
         admin = admin;
         start_time = ("2021-07-26t16:45:10Z" : timestamp);
         max_players = 10n;
     } in
-    let () = Test.transfer_to_contract_exn c (New_game new_game_data) 1mutez in
+    let () = Test.transfer_to_contract_exn c (New_game new_game_param) 1mutez in
     let actual = Test.get_storage taddr in
     let _ = _check_game_data actual.data init_data in
     ()

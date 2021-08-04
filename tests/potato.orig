@@ -1,0 +1,429 @@
+Node is bootstrapped.
+Estimated gas: 14198.715 units (will add 100 for safety)
+Estimated storage: 3089 bytes added (will add 20 for safety)
+Operation successfully injected in the node.
+Operation hash is 'opAxgizddGaPe2T4czEyCiRXCu3PLmbHcJRViyLrSMJTxS9G1gw'
+Waiting for the operation to be included...
+Operation found in block: BMcgQdgMN272SL4YERgzdeeRZnftwbzVFmaehaQQAMuyaFSZzbD (pass: 3, offset: 0)
+This sequence of operations was run:
+  Manager signed operations:
+    From: tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb
+    Fee to the baker: ꜩ0.004459
+    Expected counter: 6
+    Gas limit: 14299
+    Storage limit: 3109 bytes
+    Balance updates:
+      tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb ............ -ꜩ0.004459
+      fees(tz1YPSCGWXwBdTncK2aCctSZAXWvGsGwVJqU,74) ... +ꜩ0.004459
+    Origination:
+      From: tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb
+      Credit: ꜩ0
+      Script:
+        { parameter
+            (or (or (or (contract %buy_ticket_for_game (ticket (pair (nat %game_id) (bool %loser))))
+                        (unit %end_game))
+                    (or (pair %new_game
+                           (nat %game_id)
+                           (pair (address %admin) (pair (timestamp %start_time) (nat %max_players))))
+                        (ticket %pass_potato (pair (nat %game_id) (bool %loser)))))
+                (unit %start_game)) ;
+          storage
+            (pair (option %data
+                     (pair (nat %game_id)
+                           (pair (address %admin)
+                                 (pair (timestamp %start_time)
+                                       (pair (bool %in_progress)
+                                             (pair (nat %num_players) (pair (option %winner address) (bool %game_over))))))))
+                  (big_map %tickets nat (ticket (pair (nat %game_id) (bool %loser))))) ;
+          code { EMPTY_BIG_MAP nat (ticket (pair nat bool)) ;
+                 LAMBDA nat nat { PUSH nat 1 ; ADD } ;
+                 LAMBDA
+                   nat
+                   (lambda
+                      (big_map nat (ticket (pair nat bool)))
+                      (pair (option (ticket (pair nat bool))) (big_map nat (ticket (pair nat bool)))))
+                   { LAMBDA
+                       (pair nat (big_map nat (ticket (pair nat bool))))
+                       (pair (option (ticket (pair nat bool))) (big_map nat (ticket (pair nat bool))))
+                       { UNPAIR ;
+                         SWAP ;
+                         NONE (ticket (pair nat bool)) ;
+                         DIG 2 ;
+                         GET_AND_UPDATE ;
+                         PAIR } ;
+                     SWAP ;
+                     APPLY } ;
+                 DIG 2 ;
+                 PAIR ;
+                 LAMBDA
+                   nat
+                   (lambda
+                      nat
+                      (lambda (big_map nat (ticket (pair nat bool))) (big_map nat (ticket (pair nat bool)))))
+                   { LAMBDA
+                       (pair nat nat)
+                       (lambda (big_map nat (ticket (pair nat bool))) (big_map nat (ticket (pair nat bool))))
+                       { UNPAIR ;
+                         SWAP ;
+                         PAIR ;
+                         LAMBDA
+                           (pair (pair nat nat) (big_map nat (ticket (pair nat bool))))
+                           (big_map nat (ticket (pair nat bool)))
+                           { UNPAIR ;
+                             UNPAIR ;
+                             DIG 2 ;
+                             SWAP ;
+                             DUP 3 ;
+                             PUSH bool True ;
+                             SWAP ;
+                             PAIR ;
+                             TICKET ;
+                             SOME ;
+                             DIG 2 ;
+                             GET_AND_UPDATE ;
+                             DROP } ;
+                         SWAP ;
+                         APPLY } ;
+                     SWAP ;
+                     APPLY } ;
+                 LAMBDA
+                   nat
+                   (lambda (big_map nat (ticket (pair nat bool))) (big_map nat (ticket (pair nat bool))))
+                   { LAMBDA
+                       (pair nat (big_map nat (ticket (pair nat bool))))
+                       (big_map nat (ticket (pair nat bool)))
+                       { UNPAIR ; SWAP ; NONE (ticket (pair nat bool)) ; DIG 2 ; UPDATE } ;
+                     SWAP ;
+                     APPLY } ;
+                 PAIR ;
+                 PAIR ;
+                 PAIR ;
+                 SWAP ;
+                 UNPAIR ;
+                 SWAP ;
+                 UNPAIR ;
+                 DIG 2 ;
+                 IF_LEFT
+                   { IF_LEFT
+                       { IF_LEFT
+                           { SWAP ;
+                             IF_NONE
+                               { DROP 3 ; PUSH string "No game data" ; FAILWITH }
+                               { SENDER ;
+                                 AMOUNT ;
+                                 PUSH mutez 1000000 ;
+                                 SWAP ;
+                                 DUP ;
+                                 DUG 2 ;
+                                 COMPARE ;
+                                 EQ ;
+                                 IF {} { PUSH string "failed assertion" ; FAILWITH } ;
+                                 DUP 3 ;
+                                 GET 3 ;
+                                 DIG 2 ;
+                                 COMPARE ;
+                                 NEQ ;
+                                 IF {} { PUSH string "failed assertion" ; FAILWITH } ;
+                                 SWAP ;
+                                 DUP ;
+                                 DUG 2 ;
+                                 GET 7 ;
+                                 NOT ;
+                                 IF {} { PUSH string "failed assertion" ; FAILWITH } ;
+                                 SWAP ;
+                                 DUP ;
+                                 DUG 2 ;
+                                 GET 12 ;
+                                 NOT ;
+                                 IF {} { PUSH string "failed assertion" ; FAILWITH } ;
+                                 SWAP ;
+                                 DUP ;
+                                 DUG 2 ;
+                                 GET 3 ;
+                                 CONTRACT unit ;
+                                 IF_NONE
+                                   { DROP 5 ; PUSH string "contract does not match" ; FAILWITH }
+                                   { SWAP ;
+                                     PUSH unit Unit ;
+                                     TRANSFER_TOKENS ;
+                                     DIG 3 ;
+                                     DUP 3 ;
+                                     CAR ;
+                                     DIG 5 ;
+                                     CAR ;
+                                     CDR ;
+                                     CDR ;
+                                     SWAP ;
+                                     EXEC ;
+                                     SWAP ;
+                                     EXEC ;
+                                     UNPAIR ;
+                                     IF_NONE
+                                       { DROP 4 ; PUSH string "ticket does not exist" ; FAILWITH }
+                                       { READ_TICKET ;
+                                         CDR ;
+                                         UNPAIR ;
+                                         PUSH nat 1 ;
+                                         DIG 2 ;
+                                         SUB ;
+                                         ABS ;
+                                         PUSH nat 1 ;
+                                         PAIR ;
+                                         DIG 2 ;
+                                         SPLIT_TICKET ;
+                                         DUP 5 ;
+                                         CAR ;
+                                         DIG 2 ;
+                                         CAR ;
+                                         COMPARE ;
+                                         EQ ;
+                                         IF { IF_NONE
+                                                { DROP 4 ; PUSH string "Out of tickets" ; FAILWITH }
+                                                { UNPAIR ;
+                                                  DIG 5 ;
+                                                  PUSH mutez 0 ;
+                                                  DIG 2 ;
+                                                  TRANSFER_TOKENS ;
+                                                  DUG 2 ;
+                                                  SOME ;
+                                                  DUP 5 ;
+                                                  CAR ;
+                                                  GET_AND_UPDATE ;
+                                                  DROP ;
+                                                  DUP 4 ;
+                                                  PUSH nat 1 ;
+                                                  DIG 5 ;
+                                                  GET 9 ;
+                                                  ADD ;
+                                                  UPDATE 9 ;
+                                                  SOME ;
+                                                  PAIR ;
+                                                  NIL operation ;
+                                                  DIG 2 ;
+                                                  CONS ;
+                                                  DIG 2 ;
+                                                  CONS ;
+                                                  PAIR } }
+                                            { DROP 5 ; PUSH string "Wrong game" ; FAILWITH } } } } }
+                           { DROP ;
+                             IF_NONE
+                               { DROP 2 ; PUSH string "No game data" ; FAILWITH }
+                               { BALANCE ;
+                                 SWAP ;
+                                 DUP ;
+                                 DUG 2 ;
+                                 GET 7 ;
+                                 IF {} { PUSH string "failed assertion" ; FAILWITH } ;
+                                 SWAP ;
+                                 DUP ;
+                                 DUG 2 ;
+                                 GET 12 ;
+                                 NOT ;
+                                 IF {} { PUSH string "failed assertion" ; FAILWITH } ;
+                                 DUG 2 ;
+                                 DUP ;
+                                 DUG 3 ;
+                                 CAR ;
+                                 DIG 4 ;
+                                 CAR ;
+                                 CDR ;
+                                 CDR ;
+                                 SWAP ;
+                                 EXEC ;
+                                 SWAP ;
+                                 EXEC ;
+                                 CDR ;
+                                 DUP 3 ;
+                                 GET 11 ;
+                                 IF_NONE
+                                   { SWAP ;
+                                     DROP ;
+                                     SWAP ;
+                                     PUSH bool True ;
+                                     UPDATE 12 ;
+                                     SOME ;
+                                     PAIR ;
+                                     NIL operation ;
+                                     PAIR }
+                                   { CONTRACT unit ;
+                                     IF_NONE
+                                       { DROP 3 ; PUSH string "contract does not match" ; FAILWITH }
+                                       { DIG 2 ;
+                                         PUSH unit Unit ;
+                                         TRANSFER_TOKENS ;
+                                         DIG 2 ;
+                                         PUSH bool True ;
+                                         UPDATE 12 ;
+                                         SOME ;
+                                         DIG 2 ;
+                                         SWAP ;
+                                         PAIR ;
+                                         NIL operation ;
+                                         DIG 2 ;
+                                         CONS ;
+                                         PAIR } } } } }
+                       { IF_LEFT
+                           { SWAP ;
+                             DROP ;
+                             UNPAIR 4 ;
+                             PUSH nat 2 ;
+                             DUP 5 ;
+                             COMPARE ;
+                             GT ;
+                             IF {} { PUSH string "failed assertion" ; FAILWITH } ;
+                             DIG 4 ;
+                             DIG 4 ;
+                             DUP 3 ;
+                             DIG 6 ;
+                             CAR ;
+                             CAR ;
+                             CDR ;
+                             SWAP ;
+                             EXEC ;
+                             SWAP ;
+                             EXEC ;
+                             SWAP ;
+                             EXEC ;
+                             SWAP ;
+                             DIG 2 ;
+                             DIG 3 ;
+                             PUSH bool False ;
+                             PUSH nat 0 ;
+                             NONE address ;
+                             PUSH bool False ;
+                             SWAP ;
+                             PAIR ;
+                             SWAP ;
+                             PAIR ;
+                             SWAP ;
+                             PAIR ;
+                             SWAP ;
+                             PAIR ;
+                             SWAP ;
+                             PAIR ;
+                             SWAP ;
+                             PAIR ;
+                             SOME ;
+                             PAIR ;
+                             NIL operation ;
+                             PAIR }
+                           { SWAP ;
+                             IF_NONE
+                               { DROP 3 ; PUSH string "No game data" ; FAILWITH }
+                               { SENDER ;
+                                 SWAP ;
+                                 DUP ;
+                                 DUG 2 ;
+                                 GET 3 ;
+                                 SWAP ;
+                                 DUP ;
+                                 DUG 2 ;
+                                 COMPARE ;
+                                 NEQ ;
+                                 IF {} { PUSH string "failed assertion" ; FAILWITH } ;
+                                 SWAP ;
+                                 DUP ;
+                                 DUG 2 ;
+                                 GET 7 ;
+                                 IF {} { PUSH string "failed assertion" ; FAILWITH } ;
+                                 PUSH nat 1 ;
+                                 DUP 3 ;
+                                 GET 9 ;
+                                 COMPARE ;
+                                 GE ;
+                                 IF {} { PUSH string "failed assertion" ; FAILWITH } ;
+                                 SWAP ;
+                                 DUP ;
+                                 DUG 2 ;
+                                 GET 12 ;
+                                 NOT ;
+                                 IF {} { PUSH string "failed assertion" ; FAILWITH } ;
+                                 DIG 3 ;
+                                 DUP 3 ;
+                                 CAR ;
+                                 DIG 5 ;
+                                 CAR ;
+                                 CDR ;
+                                 CDR ;
+                                 SWAP ;
+                                 EXEC ;
+                                 SWAP ;
+                                 EXEC ;
+                                 UNPAIR ;
+                                 IF_NONE
+                                   { DROP 4 ; PUSH string "ticket does not exist" ; FAILWITH }
+                                   { READ_TICKET ;
+                                     CDR ;
+                                     CAR ;
+                                     SWAP ;
+                                     DIG 5 ;
+                                     PAIR ;
+                                     JOIN_TICKETS ;
+                                     DUP 5 ;
+                                     CAR ;
+                                     DIG 2 ;
+                                     CAR ;
+                                     COMPARE ;
+                                     EQ ;
+                                     IF { IF_NONE
+                                            { DROP 3 ; PUSH string "Wrong game" ; FAILWITH }
+                                            { SOME ;
+                                              DUP 4 ;
+                                              CAR ;
+                                              GET_AND_UPDATE ;
+                                              DROP ;
+                                              DUG 2 ;
+                                              SOME ;
+                                              UPDATE 11 ;
+                                              SOME ;
+                                              PAIR ;
+                                              NIL operation ;
+                                              PAIR } }
+                                        { DROP 4 ; PUSH string "Wrong game" ; FAILWITH } } } } } }
+                   { DIG 3 ;
+                     DROP 2 ;
+                     IF_NONE
+                       { DROP ; PUSH string "No game data" ; FAILWITH }
+                       { DUP ;
+                         GET 7 ;
+                         NOT ;
+                         IF {} { PUSH string "failed assertion" ; FAILWITH } ;
+                         PUSH nat 1 ;
+                         SWAP ;
+                         DUP ;
+                         DUG 2 ;
+                         GET 9 ;
+                         COMPARE ;
+                         GE ;
+                         IF {} { PUSH string "failed assertion" ; FAILWITH } ;
+                         DUP ;
+                         GET 12 ;
+                         NOT ;
+                         IF {} { PUSH string "failed assertion" ; FAILWITH } ;
+                         PUSH bool True ;
+                         UPDATE 7 ;
+                         SOME ;
+                         PAIR ;
+                         NIL operation ;
+                         PAIR } } } }
+        Initial storage: (Pair None {})
+        No delegate for this contract
+        This origination was successfully applied
+        Originated contracts:
+          KT1Exa9Y52DJyah2Ruo8wRznqv6WiVFvqL5A
+        Storage size: 2832 bytes
+        Updated big_maps:
+          New map(7) of type (big_map nat (ticket (pair (nat %game_id) (bool %loser))))
+        Paid storage size diff: 2832 bytes
+        Consumed gas: 14198.715
+        Balance updates:
+          tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb ... -ꜩ0.708
+          tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb ... -ꜩ0.06425
+
+New contract KT1Exa9Y52DJyah2Ruo8wRznqv6WiVFvqL5A originated.
+The operation has only been included 0 blocks ago.
+We recommend to wait more.
+Use command
+  tezos-client wait for opAxgizddGaPe2T4czEyCiRXCu3PLmbHcJRViyLrSMJTxS9G1gw to be included --confirmations 30 --branch BL99kUW43gvqeEAGKTTWWZxLKDrk3vGQBzhRK298iKKzjQGoyY6
+and/or an external block explorer.
+Contract memorized as potato-game-v4.
