@@ -58,15 +58,22 @@ end
 type new_game_param =
 [@layout:comb]
 {
-    game_id: TicketBook.game_id;
     admin: address;
     start_time: timestamp; (* when the game will start *)
     max_players: nat; (* max number players *)
 }
 
+type buy_potato_param =
+[@layout:comb]
+{
+    game_id : TicketBook.game_id;
+    dest : (TicketBook.tkt contract);
+}
+
 type pass_potato_param =
 [@layout:comb]
 {
+    game_id : TicketBook.game_id;
     ticket: TicketBook.tkt;
     winner: address;
 }

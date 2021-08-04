@@ -23,33 +23,36 @@ type game_data =
 type game_storage =
 [@layout:comb]
 {
-    data: game_data option;
+    data: (TicketBook.game_id, game_data) big_map;
 
-    tickets: TicketBook.t; (* one ticket book holding N things per game *)
+    tickets: TicketBook.t; (* multiple ticket books each of which is holding N things per game *)
+
+    next_game_id : TicketBook.game_id;
 }
 
 type parameter =
 | New_game of new_game_param (* admin opens a new game for people to register up to *)
-| Buy_ticket_for_game of (TicketBook.tkt contract) (* non-admin register for a game by buying a ticket *)
-| Start_game (* admin starts the game *)
+| Buy_potato_for_game of buy_potato_param (* non-admin register for a game by buying a potato *)
+| Start_game of TicketBook.game_id (* admin starts the game *)
 | Pass_potato of pass_potato_param (* non-admin passes the potato (ticket) back *)
-| End_game (* admin ends game, winner is last person to give back before end of game *)
+| End_game of TicketBook.game_id (* admin ends game, winner is last person to give back before end of game *)
 
 type return = operation list * game_storage
 
 let main (action, store: parameter * game_storage) : return =
 begin
-    let {data = data; tickets = tickets} = store in
+    let {data = data; tickets = tickets; next_game_id = next_game_id} = store in
     ( match action with
       | New_game new_game_param -> begin
             (*let now = Tezos.now in*)
-            let {game_id = game_id; admin = admin; start_time = start_time; max_players = max_players; } = new_game_param in
+            assert (not Big_map.mem next_game_id data);
+            let {admin = admin; start_time = start_time; max_players = max_players; } = new_game_param in
             (*assert (Tezos.sender = admin);*)
             (*assert (now < start_time);*)
             assert (max_players > 2n);
             let winner : address option = None in
-            let data : game_data = {
-                game_id = game_id;
+            let game_data : game_data = {
+                game_id = next_game_id;
                 admin = admin;
                 start_time = start_time;
                 in_progress = false;
@@ -57,96 +60,109 @@ begin
                 winner = winner;
                 game_over = false;
             } in
-            let tickets = TicketBook.create_with game_id max_players tickets in
-            ( ([] : operation list), { data = Some data; tickets=tickets } )
+            let data = Big_map.add next_game_id game_data data in
+            let tickets = TicketBook.create_with next_game_id max_players tickets in
+            ( ([] : operation list), { data = data; tickets=tickets; next_game_id = (next_game_id + 1n) } )
         end
 
-      | Buy_ticket_for_game send_to -> begin
-            match data with
+      | Buy_potato_for_game buy_potato_param -> begin
+            match (Big_map.find_opt buy_potato_param.game_id data) with
             | None -> (failwith "No game data" : return)
-            | Some data -> begin
+            | Some game_data -> begin
                 (*let now = Tezos.now in*)
+                assert (buy_potato_param.game_id = game_data.game_id);
                 let addr = Tezos.sender in
                 let purchase_price = Tezos.amount in
                 assert (purchase_price = 10tez);
-                assert (addr <> data.admin);
-                (*assert (now < data.start_time);*)
-                assert (not data.in_progress);
-                assert (not data.game_over);
-                let (tkt, tickets) = TicketBook.get data.game_id tickets in
+                assert (addr <> game_data.admin);
+                (*assert (now < game_data.start_time);*)
+                assert (not game_data.in_progress);
+                assert (not game_data.game_over);
+                let (tkt, tickets) = TicketBook.get game_data.game_id tickets in
                 match tkt with
                   | None -> (failwith "ticket does not exist" : return)
                   | Some tkt ->
-                    let ((_addr,(game, amt)), tkt) = Tezos.read_ticket tkt in
-                    match (game.game_id = data.game_id, Tezos.split_ticket tkt (1n, abs(amt-1n))) with
+                    let ((_addr, (game, amt)), tkt) = Tezos.read_ticket tkt in
+                    match (game.game_id = game_data.game_id, Tezos.split_ticket tkt (1n, abs(amt-1n))) with
                     | (false, _) -> (failwith "Wrong game" : return)
                     | (true, None) -> (failwith "Out of tickets" : return)
                     | (true, Some (tkt, book)) ->
-                      let op = Tezos.transaction tkt 0mutez send_to in
-                      let (_, tickets) = Big_map.get_and_update data.game_id (Some book) tickets in
-                      ([op], {data = Some {data with num_players = data.num_players + 1n}; tickets = tickets; })
+                      let op = Tezos.transaction tkt 0mutez buy_potato_param.dest in
+                      let (_, tickets) = Big_map.get_and_update game_data.game_id (Some book) tickets in
+                      let game_data = {game_data with num_players = game_data.num_players + 1n} in
+                      let data = Big_map.update game_data.game_id (Some game_data) data in
+                      ([op], {data = data; tickets = tickets; next_game_id = next_game_id})
             end
       end
 
-      | Start_game -> begin
-            match data with
+      | Start_game game_id -> begin
+            match (Big_map.find_opt game_id data) with
             | None -> (failwith "No game data" : return)
-            | Some data -> begin
+            | Some game_data -> begin
+                assert (game_id = game_data.game_id);
                 (*let now = Tezos.now in *)
                 (*let addr = Tezos.sender in *)
-                (*assert (addr = data.admin);*)
-                (*assert (now >= data.start_time);*)
-                assert (not data.in_progress);
-                assert (data.num_players >= 1n);
-                assert (not data.game_over);
-                ( ([] : operation list), {data = Some {data with in_progress = true}; tickets = tickets} )
+                (*assert (addr = game_data.admin);*)
+                (*assert (now >= game_data.start_time);*)
+                assert (not game_data.in_progress);
+                assert (game_data.num_players >= 1n);
+                assert (not game_data.game_over);
+                let game_data = {game_data with in_progress = true} in
+                let data = Big_map.update game_id (Some game_data) data in
+                ( ([] : operation list), {data = data ; tickets = tickets; next_game_id = next_game_id} )
             end
       end
 
       | Pass_potato potato -> begin
-            let {ticket=ticket; winner=winner} = potato in
-            match data with
+            let {game_id = game_id; ticket=ticket; winner=winner} = potato in
+            match (Big_map.find_opt game_id data) with
             | None -> (failwith "No game data" : return)
-            | Some data -> begin
+            | Some game_data -> begin
+                assert (game_id = game_data.game_id);
                 (*let now = Tezos.now in*)
-                assert (winner <> data.admin);
-                (*assert (now >= data.start_time);*)
-                assert (data.in_progress);
-                assert (data.num_players >= 1n);
-                assert (not data.game_over);
-                let (tkt, tickets) = TicketBook.get data.game_id tickets in
+                assert (winner <> game_data.admin);
+                (*assert (now >= game_data.start_time);*)
+                assert (game_data.in_progress);
+                assert (game_data.num_players >= 1n);
+                assert (not game_data.game_over);
+                let (tkt, tickets) = TicketBook.get game_id tickets in
                 match tkt with
                   | None -> (failwith "ticket does not exist" : return)
                   | Some tkt ->
-                    let ((_addr,(game, _amt)), tkt) = Tezos.read_ticket tkt in
-                    match (game.game_id = data.game_id, Tezos.join_tickets (ticket, tkt)) with
+                    let ((_addr, (game, _amt)), tkt) = Tezos.read_ticket tkt in
+                    match (game_id = game.game_id, Tezos.join_tickets (ticket, tkt)) with
                     | (false, _) -> (failwith "Wrong game" : return)
                     | (true, None) -> (failwith "Wrong game" : return)
                     | (true, Some book) ->
-                      let (_, tickets) = Big_map.get_and_update data.game_id (Some book) tickets in
-                      ( ([] : operation list), {data = Some {data with winner = (Some winner)}; tickets = tickets; } )
+                      let (_, tickets) = Big_map.get_and_update game_id (Some book) tickets in
+                      let game_data = {game_data with winner = (Some winner)} in
+                      let data = Big_map.update game_id (Some game_data) data in
+                      ( ([] : operation list), {data = data ; tickets = tickets; next_game_id = next_game_id} )
             end
       end
 
-      | End_game -> begin
-            match data with
+      | End_game game_id -> begin
+            match (Big_map.find_opt game_id data) with
             | None -> (failwith "No game data" : return)
-            | Some data -> begin
+            | Some game_data -> begin
+                assert (game_id = game_data.game_id);
                 (*let now = Tezos.now in*)
                 (*let addr = Tezos.sender in*)
-                let winnings = data.num_players * 10tez in
-                (*assert (addr = data.admin);*)
-                (*assert (now >= data.start_time);*)
-                assert (data.in_progress);
-                assert (not data.game_over);
-                let (_, tickets) = TicketBook.get data.game_id tickets in
-                match (data.winner) with
-                  | None -> ( ([] : operation list), {data = Some {data with game_over = true}; tickets = tickets})
+                let winnings = game_data.num_players * 10tez in
+                (*assert (addr = game_data.admin);*)
+                (*assert (now >= game_data.start_time);*)
+                assert (game_data.in_progress);
+                assert (not game_data.game_over);
+                let game_data = {game_data with game_over = true} in
+                let data = Big_map.update game_id (Some game_data) data in
+                let (_, tickets) = TicketBook.get game_id tickets in
+                match (game_data.winner) with
+                  | None -> ( ([] : operation list), {data = data ; tickets = tickets; next_game_id = next_game_id} )
                   | Some winner ->
                     match ((Tezos.get_contract_opt winner) : unit contract option) with
                       | None -> (failwith "contract does not match" : return)
                       | Some c -> let op1 = Tezos.transaction () winnings c in
-                        ( [op1], {data = Some {data with game_over = true}; tickets = tickets})
+                        ( [op1], {data = data ; tickets = tickets; next_game_id = next_game_id} )
             end
       end
 
@@ -154,10 +170,11 @@ begin
 
 end
 
-(* (Pair None {}) *)
+(* (Pair None {} 0n) *)
 let sample_storage : game_storage = {
-    data = (None : game_data option);
+    data = (Big_map.empty : (TicketBook.game_id, game_data) big_map);
     tickets = TicketBook.empty;
+    next_game_id = 0n;
 }
 
 
