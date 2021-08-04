@@ -3,57 +3,6 @@
 
 #include "types.mligo"
 
-(* FA2 stuff - FA2 token is the game itself, tickets take care of potato passing semantics *)
-type transfer_destination =
-[@layout:comb]
-{
-  to_ : address;
-  token_id : TicketBook.game_id;
-  amount : nat;
-}
-
-type transfer =
-[@layout:comb]
-{
-  from_ : address;
-  txs : transfer_destination list;
-}
-
-type balance_of_request =
-[@layout:comb]
-{
-  owner : address;
-  token_id : TicketBook.game_id;
-}
-
-type balance_of_response =
-[@layout:comb]
-{
-  request : balance_of_request;
-  balance : nat;
-}
-
-type balance_of_param =
-[@layout:comb]
-{
-  requests : balance_of_request list;
-  callback : (balance_of_response list) contract;
-}
-
-type operator_param =
-[@layout:comb]
-{
-  owner : address;
-  operator : address;
-  token_id : TicketBook.game_id;
-}
-
-type update_operator =
-  [@layout:comb]
-  | Add_operator of operator_param
-  | Remove_operator of operator_param
-
-
 (* game types *)
 type send_param =
   [@layout:comb]
@@ -69,10 +18,6 @@ type hot_potato_param =
   }
 
 type parameter =
-  (* FA2 stuff first *)
-(*)  | Transfer of transfer list
-  | Balance_of of balance_of_param
-  | Update_operators of update_operator list *)
   (* game ticket management *)
   | Receive of TicketBook.tkt
   | Send of send_param
@@ -86,7 +31,7 @@ type storage =
   {
     admin : address;
     tickets : TicketBook.t; (* the tickets this wallet has bought *)
-    current_game_id : TicketBook.game_id option; (* TODO use this to +=1 to make new game ids *)
+    current_game_id : TicketBook.game_id option;
   }
 
 type return = operation list * storage
