@@ -121,6 +121,7 @@ begin
           in
           let _u : unit = List.iter quick_check transfers in
 
+          (* bigger stuff - flatten down to (from, to, token_id) -> amount map *)
           let _flatten (from_ : address) (acc, tdest : flattened*transfer_destination) : flattened =
               let key = (from_, tdest.to_, tdest.token_id) in
               let amount_ = match Map.find_opt key acc with
@@ -136,16 +137,19 @@ begin
           in
 
           let full_check ((from_, _to, game_id), amount_ : (address*address*TicketBook.game_id)*nat) : unit =
+              (* not quite same as before as this is an accumulated total now *)
               if amount_ > 1n then (failwith "FA2_INSUFFICIENT_BALANCE" : unit) else
               match Big_map.find_opt game_id data with
-              | None -> (failwith "FA2_TOKEN_UNDEFINED" : unit)
+              | None -> (failwith "FA2_TOKEN_UNDEFINED" : unit) (* same as before but have to deal with it again *)
               | Some game ->
-                  if from_ <> game.admin then (failwith "FA2_NOT_OPERATOR" : unit) else
-                  ()
+                  (* only allow admin to send non-zero amounts of their own stuff *)
+                  if from_ <> game.admin then
+                     if amount_ > 0n then (failwith "FA2_NOT_OPERATOR" : unit) else ()
+                  else ()
           in
           let _u : unit = Map.iter full_check all_amounts in
 
-          (* go over one more time to modify admin address *)
+          (* TODO go over one more time to modify admin address if amount_ == 1*)
           (([] : operation list), {data = data; tickets = tickets; next_game_id = next_game_id})
       end
 
