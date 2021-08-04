@@ -125,12 +125,25 @@ let main (arg : parameter * storage) : return =
         let ((_, (game, qty)), ticket) = Tezos.read_ticket ticket in
         assert (qty >= 1n);
         (* TODO check if already have one for this game_id and join it if so *)
-        let (_, tickets) = Big_map.get_and_update game.game_id (Some ticket) tickets in
-        (([] : operation list), {
-             admin = admin;
-             tickets = tickets;
-             current_game_id = (Some game.game_id);
-        })
+        let (tkt, tickets) = Big_map.get_and_update game.game_id (None : TicketBook.tkt option) tickets in
+        match tkt with
+        | None ->
+            let (_, tickets) = Big_map.get_and_update game.game_id (Some ticket) tickets in
+            (([] : operation list), {
+                 admin = admin;
+                 tickets = tickets;
+                 current_game_id = (Some game.game_id);
+            })
+        | Some tkt ->
+            match (Tezos.join_tickets (ticket, tkt)) with
+            | None -> (failwith "Wrong game" : return)
+            | Some book ->
+                let (_, tickets) = Big_map.get_and_update game.game_id (Some book) tickets in
+                (([] : operation list), {
+                     admin = admin;
+                     tickets = tickets;
+                     current_game_id = (Some game.game_id);
+                })
         end
 
       | Send send -> begin
