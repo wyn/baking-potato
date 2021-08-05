@@ -17,7 +17,7 @@ CLIVE_ADDRESS = tz1YFWuGimwnzPZ1nLbPQSqtnoBB3J9vw2jF
 DEB_ADDRESS = tz1cMtPPqqufFQMbdWw2ZzN4LhZZoLAysEo1
 ENOCH_ADDRESS = tz1Tp2vvH75pkiwoYcbKDk1MztqVJpDiKfGC
 
-all: ./build/potato.tz ./build/potato_wallet.tz
+all: michelson contracts
 
 contracts: wallets game
 
@@ -47,6 +47,8 @@ enoch_wallet: ./build/potato_wallet.tz wait
 	$(ORIGINATE_CONTRACT) potato-wallet-enoch-$(VERSION) transferring 0 from enoch running \
     "$(PWD)/build/potato_wallet.tz" --init "Pair \"$(ENOCH_ADDRESS)\" {} None" --burn-cap 1
 
+michelson: ./build/potato.tz ./build/potato_wallet.tz
+
 ./build/potato.tz: potato.mligo types.mligo
 	$(LIGO) potato.mligo $(MAIN) --output-file=./build/potato.tz
 
@@ -56,11 +58,14 @@ enoch_wallet: ./build/potato_wallet.tz wait
 wait:
 	$(SLEEP5)
 
+
+clean: clean_michelson clean_contracts
+
 # WARN
 # careful need to rm -f here because
 # ligo cmdline is a 'docker run' command
 # and it makes the file outputs root
-clean:
+clean_michelson:
 	rm -f ./build/potato.tz ./build/potato_wallet.tz
 
 clean_contracts:
