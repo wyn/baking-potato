@@ -3,57 +3,6 @@
 
 #include "types.mligo"
 
-(* FA2 stuff - FA2 token is the game itself, tickets take care of potato passing semantics *)
-type transfer_destination =
-[@layout:comb]
-{
-  to_ : address;
-  token_id : TicketBook.game_id;
-  amount : nat;
-}
-
-type transfer =
-[@layout:comb]
-{
-  from_ : address;
-  txs : transfer_destination list;
-}
-
-type balance_of_request =
-[@layout:comb]
-{
-  owner : address;
-  token_id : TicketBook.game_id;
-}
-
-type balance_of_response =
-[@layout:comb]
-{
-  request : balance_of_request;
-  balance : nat;
-}
-
-type balance_of_param =
-[@layout:comb]
-{
-  requests : balance_of_request list;
-  callback : (balance_of_response list) contract;
-}
-
-type operator_param =
-[@layout:comb]
-{
-  owner : address;
-  operator : address;
-  token_id : TicketBook.game_id;
-}
-
-type update_operator =
-  [@layout:comb]
-  | Add_operator of operator_param
-  | Remove_operator of operator_param
-
-
 type game_data =
 [@layout:comb]
 {
@@ -66,10 +15,12 @@ type game_data =
     game_over: bool;
 }
 
+type all_game_data = (TicketBook.game_id, game_data) big_map
+
 type game_storage =
 [@layout:comb]
 {
-    data: (TicketBook.game_id, game_data) big_map;
+    data: all_game_data;
 
     tickets: TicketBook.t; (* multiple ticket books each of which is holding N things per game *)
 
@@ -90,7 +41,8 @@ type parameter =
 
 type return = operation list * game_storage
 
-type flattened = ((address*address*TicketBook.game_id), nat) map
+type flattened_key = address*address*TicketBook.game_id
+type flattened = (flattened_key, nat) map
 
 let main (action, store: parameter * game_storage) : return =
 begin
@@ -99,9 +51,13 @@ begin
       (* FA2 spec relates to games *)
 
       | Transfer transfers -> begin
+          (* NOTE it is important not to modify any of data - a big_map - until
+             we know that it is ok to do so.
+             Hence strategy is to check everything up front first then
+             do a final edit pass on the transfers
+             *)
 
           (* some quick checks before bigger stuff *)
-
           let _all_token_ids_exist (acc, tdest : bool*transfer_destination) : bool =
               acc && (Big_map.mem tdest.token_id data)
           in
@@ -110,18 +66,18 @@ begin
           let _all_amounts_ok_pass1 (acc, tdest : bool*transfer_destination) : bool =
               acc && (tdest.amount < 2n)
           in
-
+          (* this function applies the two quick checkers to the inner lists of each transfer *)
           let quick_check (t : transfer) : unit =
               let token_ids_ok = List.fold _all_token_ids_exist t.txs true in
               let amounts_ok = List.fold _all_amounts_ok_pass1 t.txs true in
               match (token_ids_ok, amounts_ok) with
               | (true, true) -> () (* NOTE this needs to come first *)
-              | (false, _) -> (failwith "FA2_TOKEN_UNDEFINED" : unit)
-              | (_, false) -> (failwith "FA2_INSUFFICIENT_BALANCE" : unit)
+              | (false, _) -> (failwith Errors.fa2_TOKEN_UNDEFINED : unit)
+              | (_, false) -> (failwith Errors.fa2_INSUFFICIENT_BALANCE : unit)
           in
           let _u : unit = List.iter quick_check transfers in
 
-          (* bigger stuff - flatten down to (from, to, token_id) -> amount map *)
+          (* bigger stuff - flatten down to (from, to, token_id) -> accumulated amount map *)
           let _flatten (from_ : address) (acc, tdest : flattened*transfer_destination) : flattened =
               let key = (from_, tdest.to_, tdest.token_id) in
               let amount_ = match Map.find_opt key acc with
@@ -136,20 +92,33 @@ begin
               ) transfers (Map.empty : flattened)
           in
 
-          let full_check ((from_, _to, game_id), amount_ : (address*address*TicketBook.game_id)*nat) : unit =
+          (* can now check accumulated amounts for each to/from/game_id tuple
+             and also that the from address is the current owner of the game
+          *)
+          let full_check ((from_, _to, game_id), amount_ : flattened_key*nat) : unit =
               (* not quite same as before as this is an accumulated total now *)
-              if amount_ > 1n then (failwith "FA2_INSUFFICIENT_BALANCE" : unit) else
+              if amount_ > 1n then (failwith Errors.fa2_INSUFFICIENT_BALANCE : unit) else
               match Big_map.find_opt game_id data with
-              | None -> (failwith "FA2_TOKEN_UNDEFINED" : unit) (* same as before but have to deal with it again *)
+              | None -> (failwith Errors.fa2_TOKEN_UNDEFINED : unit) (* same as before but have to deal with it again *)
               | Some game ->
-                  (* only allow admin to send non-zero amounts of their own stuff *)
+                  (* only allow current admin to send non-zero amounts of their own stuff *)
                   if from_ <> game.admin then
-                     if amount_ > 0n then (failwith "FA2_NOT_OPERATOR" : unit) else ()
+                     if amount_ > 0n then (failwith Errors.fa2_NOT_OPERATOR : unit) else ()
                   else ()
           in
           let _u : unit = Map.iter full_check all_amounts in
 
-          (* TODO go over one more time to modify admin address if amount_ == 1*)
+          (* Now is safe to edit data - go over one more time to modify admin address if amount_ == 1
+             NOTE have to do this after checking everything as dont want to partially change data *)
+          let change_admin (acc, ((_from, to_, game_id), amount_) : all_game_data*(flattened_key*nat)) : all_game_data =
+              if amount_ = 0n then acc else
+              match Big_map.find_opt game_id acc with
+              | None -> acc
+              | Some game ->
+                    let game = {game with admin = to_} in
+                    Big_map.update game_id (Some game) acc
+          in
+          let data = Map.fold change_admin all_amounts data in
           (([] : operation list), {data = data; tickets = tickets; next_game_id = next_game_id})
       end
 
@@ -165,14 +134,14 @@ begin
               | None -> zero_balance
           in
           match (List.fold _all_token_ids_exist bp.requests true) with
-          | false -> (failwith "FA2_TOKEN_UNDEFINED" : return)
+          | false -> (failwith Errors.fa2_TOKEN_UNDEFINED : return)
           | true ->
               let resps = List.map _get_balance bp.requests in
               let op = Tezos.transaction resps 0mutez bp.callback in
               ([op], {data = data; tickets = tickets; next_game_id = next_game_id})
       end
 
-      | Update_operators _ -> (failwith "FA2_NOT_OPERATOR" : return)
+      | Update_operators _ -> (failwith Errors.fa2_NOT_OPERATOR : return)
 
       | New_game new_game_param -> begin
             (*let now = Tezos.now in*)
@@ -198,7 +167,7 @@ begin
 
       | Buy_potato_for_game buy_potato_param -> begin
             match (Big_map.find_opt buy_potato_param.game_id data) with
-            | None -> (failwith "No game data" : return)
+            | None -> (failwith Errors.potato_NO_GAME_DATA : return)
             | Some game_data -> begin
                 (*let now = Tezos.now in*)
                 assert (buy_potato_param.game_id = game_data.game_id);
@@ -211,12 +180,12 @@ begin
                 assert (not game_data.game_over);
                 let (tkt, tickets) = TicketBook.get game_data.game_id tickets in
                 match tkt with
-                  | None -> (failwith "ticket does not exist" : return)
+                  | None -> (failwith Errors.potato_NO_TICKET : return)
                   | Some tkt ->
                     let ((_addr, (game, amt)), tkt) = Tezos.read_ticket tkt in
                     match (game.game_id = game_data.game_id, Tezos.split_ticket tkt (1n, abs(amt-1n))) with
-                    | (false, _) -> (failwith "Wrong game" : return)
-                    | (true, None) -> (failwith "Out of tickets" : return)
+                    | (false, _) -> (failwith Errors.potato_WRONG_GAME : return)
+                    | (true, None) -> (failwith Errors.potato_EMPTY_TICKETBOOK : return)
                     | (true, Some (tkt, book)) ->
                       let op = Tezos.transaction tkt 0mutez buy_potato_param.dest in
                       let (_, tickets) = Big_map.get_and_update game_data.game_id (Some book) tickets in
@@ -228,7 +197,7 @@ begin
 
       | Start_game game_id -> begin
             match (Big_map.find_opt game_id data) with
-            | None -> (failwith "No game data" : return)
+            | None -> (failwith Errors.potato_NO_GAME_DATA : return)
             | Some game_data -> begin
                 assert (game_id = game_data.game_id);
                 (*let now = Tezos.now in *)
@@ -247,7 +216,7 @@ begin
       | Pass_potato potato -> begin
             let {game_id = game_id; ticket=ticket; winner=winner} = potato in
             match (Big_map.find_opt game_id data) with
-            | None -> (failwith "No game data" : return)
+            | None -> (failwith Errors.potato_NO_GAME_DATA : return)
             | Some game_data -> begin
                 assert (game_id = game_data.game_id);
                 (*let now = Tezos.now in*)
@@ -258,12 +227,12 @@ begin
                 assert (not game_data.game_over);
                 let (tkt, tickets) = TicketBook.get game_id tickets in
                 match tkt with
-                  | None -> (failwith "ticket does not exist" : return)
+                  | None -> (failwith Errors.potato_NO_TICKET : return)
                   | Some tkt ->
                     let ((_addr, (game, _amt)), tkt) = Tezos.read_ticket tkt in
                     match (game_id = game.game_id, Tezos.join_tickets (ticket, tkt)) with
-                    | (false, _) -> (failwith "Wrong game" : return)
-                    | (true, None) -> (failwith "Wrong game" : return)
+                    | (false, _) -> (failwith Errors.potato_WRONG_GAME : return)
+                    | (true, None) -> (failwith Errors.potato_WRONG_GAME : return)
                     | (true, Some book) ->
                       let (_, tickets) = Big_map.get_and_update game_id (Some book) tickets in
                       let game_data = {game_data with winner = (Some winner)} in
@@ -274,7 +243,7 @@ begin
 
       | End_game game_id -> begin
             match (Big_map.find_opt game_id data) with
-            | None -> (failwith "No game data" : return)
+            | None -> (failwith Errors.potato_NO_GAME_DATA : return)
             | Some game_data -> begin
                 assert (game_id = game_data.game_id);
                 (*let now = Tezos.now in*)
@@ -291,7 +260,7 @@ begin
                   | None -> ( ([] : operation list), {data = data ; tickets = tickets; next_game_id = next_game_id} )
                   | Some winner ->
                     match ((Tezos.get_contract_opt winner) : unit contract option) with
-                      | None -> (failwith "contract does not match" : return)
+                      | None -> (failwith Errors.potato_BAD_CONTRACT : return)
                       | Some c -> let op1 = Tezos.transaction () winnings c in
                         ( [op1], {data = data ; tickets = tickets; next_game_id = next_game_id} )
             end

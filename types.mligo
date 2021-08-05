@@ -1,7 +1,8 @@
 #if !TYPES
 #define TYPES
+
 (* potato is a ticket holding the game ID as Nat and loser flag
-   each one gets passed to players at start,
+   each individual ticket in the ticketbook gets passed to players at start,
    then passed back to try and win,
    last one to pass back before the game ends is the winner
 *)
@@ -77,5 +78,68 @@ type pass_potato_param =
     ticket: TicketBook.tkt;
     winner: address;
 }
+
+(* FA2 stuff - FA2 token is the game itself, tickets take care of potato passing semantics *)
+type transfer_destination =
+[@layout:comb]
+{
+  to_ : address;
+  token_id : TicketBook.game_id;
+  amount : nat;
+}
+
+type transfer =
+[@layout:comb]
+{
+  from_ : address;
+  txs : transfer_destination list;
+}
+
+type balance_of_request =
+[@layout:comb]
+{
+  owner : address;
+  token_id : TicketBook.game_id;
+}
+
+type balance_of_response =
+[@layout:comb]
+{
+  request : balance_of_request;
+  balance : nat;
+}
+
+type balance_of_param =
+[@layout:comb]
+{
+  requests : balance_of_request list;
+  callback : (balance_of_response list) contract;
+}
+
+type operator_param =
+[@layout:comb]
+{
+  owner : address;
+  operator : address;
+  token_id : TicketBook.game_id;
+}
+
+type update_operator =
+  [@layout:comb]
+  | Add_operator of operator_param
+  | Remove_operator of operator_param
+
+module Errors = struct
+    let fa2_INSUFFICIENT_BALANCE = "FA2_INSUFFICIENT_BALANCE"
+    let fa2_TOKEN_UNDEFINED = "FA2_TOKEN_UNDEFINED"
+    let fa2_NOT_OPERATOR = "FA2_NOT_OPERATOR"
+
+    let potato_BAD_CONTRACT = "Contract does not match"
+    let potato_NO_GAME_DATA = "No game data"
+    let potato_WRONG_GAME = "Wrong game"
+    let potato_NO_TICKET = "Ticket does not exist"
+    let potato_EMPTY_TICKETBOOK = "Out of tickets"
+end
+
 
 #endif
