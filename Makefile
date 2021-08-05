@@ -78,7 +78,7 @@ clean_contracts:
 ####################################################################################################
 
 # helpers for doing examples
-init: hot_potato_0 hot_potato_1
+hot_potato: hot_potato_0 hot_potato_1
 
 # alice configures a game first (will get game_id=0),
 # 3 players max
