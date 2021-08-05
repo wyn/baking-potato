@@ -145,10 +145,9 @@ begin
 
       | New_game new_game_param ->
             (*let now = Tezos.now in*)
+            (*assert (now < start_time);*)
             if (Big_map.mem next_game_id data) then (failwith "Game already created" : return) else
             let {admin = admin; start_time = start_time; max_players = max_players; } = new_game_param in
-            (*assert (Tezos.sender = admin);*)
-            (*assert (now < start_time);*)
             if (max_players < 2n) then (failwith "Games should have at least two players" : return) else
             let winner : address option = None in
             let game_data : game_data = {
@@ -201,9 +200,9 @@ begin
             | Some game_data ->
                 if (game_id <> game_data.game_id) then (failwith Errors.potato_WRONG_GAME : return) else
                 (*let now = Tezos.now in *)
-                (*let addr = Tezos.sender in *)
-                (*assert (addr = game_data.admin);*)
                 (*assert (now >= game_data.start_time);*)
+                let addr = Tezos.sender in
+                if (addr <> game_data.admin) then (failwith "Game owner has to start the game" : return) else
                 if game_data.in_progress then (failwith "Game already in progress" : return) else
                 if (game_data.num_players = 0n) then (failwith "No players for game" : return) else
                 if game_data.game_over then (failwith "Game already finished" : return) else
@@ -246,10 +245,9 @@ begin
             | Some game_data ->
                 if (game_id <> game_data.game_id) then (failwith Errors.potato_WRONG_GAME : return) else
                 (*let now = Tezos.now in*)
-                (*let addr = Tezos.sender in*)
-                let winnings = game_data.num_players * 10tez in
-                (*assert (addr = game_data.admin);*)
                 (*assert (now >= game_data.start_time);*)
+                let addr = Tezos.sender in
+                if (addr <> game_data.admin) then (failwith "Game owner has to end the game" : return) else
                 if not game_data.in_progress then (failwith "Game not in progress" : return) else
                 if game_data.game_over then (failwith "Game already finished" : return) else
                 let game_data = {game_data with game_over = true} in
@@ -260,7 +258,9 @@ begin
                   | Some winner -> (
                     match ((Tezos.get_contract_opt winner) : unit contract option) with
                       | None -> (failwith Errors.potato_BAD_CONTRACT : return)
-                      | Some c -> let op1 = Tezos.transaction () winnings c in
+                      | Some c ->
+                        let winnings = game_data.num_players * 10tez in
+                        let op1 = Tezos.transaction () winnings c in
                         ( [op1], {data = data ; tickets = tickets; next_game_id = next_game_id} )
                     )
                 )

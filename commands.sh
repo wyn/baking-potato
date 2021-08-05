@@ -1,16 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-tzc originate contract potato-game-v1 transferring 0 from alice running \
-    "$(pwd)/build/potato.tz" --init "Pair {} {} 0" --burn-cap 2
-
-tzc originate contract potato-wallet-alice-v1 transferring 0 from alice running \
-    "$(pwd)/build/potato_wallet.tz" --init "Pair \"<alice address>\" {} None" --burn-cap 1
-
-tzc originate contract potato-wallet-bob-v1 transferring 0 from bob running \
-    "$(pwd)/build/potato_wallet.tz" --init "Pair \"<bob address>\" {} None" --burn-cap 1
-
-etc...
+# originating contracts is done in the makefile
 
 tzc transfer 0 from alice to potato-wallet-alice-v1 --entrypoint "hotPotato" \
     --arg "Pair \"<potato-game-v1>%new_game\" (Pair 0 3)" --burn-cap 1
