@@ -3,19 +3,20 @@
 
 #include "types.mligo"
 
-(* game types *)
 type send_param =
-  [@layout:comb]
-  {destination : (pass_potato_param) contract;
-   game_id : TicketBook.game_id}
+[@layout:comb]
+{
+    destination : pass_potato_param contract;
+    game_id : TicketBook.game_id
+}
 
 type hot_potato_param =
-  [@layout:comb]
-  {
+[@layout:comb]
+{
     destination : new_game_param contract;
     start_time : timestamp;
     max_players : nat;
-  }
+}
 
 type parameter =
   (* make a new game (minting?) *)
@@ -27,12 +28,12 @@ type parameter =
   | SetCurrentGame of TicketBook.game_id
 
 type storage =
-  [@layout:comb]
-  {
+[@layout:comb]
+{
     admin : address; (* owner of this wallet *)
     tickets : TicketBook.t; (* the tickets this wallet has bought *)
     current_game_id : TicketBook.game_id option; (* pointer to current game ID *)
-  }
+}
 
 type return = operation list * storage
 
