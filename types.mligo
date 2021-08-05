@@ -56,6 +56,7 @@ module TicketBook = struct
           *)
 end
 
+(* NOTE could differentiate between 'public' types and non public ones? *)
 type new_game_param =
 [@layout:comb]
 {
@@ -67,8 +68,8 @@ type new_game_param =
 type buy_potato_param =
 [@layout:comb]
 {
-    game_id : TicketBook.game_id;
     dest : (TicketBook.tkt contract);
+    game_id : TicketBook.game_id;
 }
 
 type pass_potato_param =

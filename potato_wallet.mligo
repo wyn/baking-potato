@@ -124,7 +124,7 @@ let main (arg : parameter * storage) : return =
   end
 
 
-(* (Pair "tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb" {} None {}) *)
+(* (Pair "tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb" {} None) *)
 let sample_storage : storage = {
   admin = ("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb" : address);
   tickets = TicketBook.empty;
