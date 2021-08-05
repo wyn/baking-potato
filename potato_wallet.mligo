@@ -23,15 +23,15 @@ type parameter =
   (* game ticket management *)
   | Receive of TicketBook.tkt
   | Send of send_param
-  (* not sure need this *)
+  (* not sure need this really *)
   | SetCurrentGame of TicketBook.game_id
 
 type storage =
   [@layout:comb]
   {
-    admin : address;
+    admin : address; (* owner of this wallet *)
     tickets : TicketBook.t; (* the tickets this wallet has bought *)
-    current_game_id : TicketBook.game_id option;
+    current_game_id : TicketBook.game_id option; (* pointer to current game ID *)
   }
 
 type return = operation list * storage
@@ -76,7 +76,7 @@ let main (arg : parameter * storage) : return =
             })
         | Some tkt ->
             match (Tezos.join_tickets (ticket, tkt)) with
-            | None -> (failwith "Wrong game" : return)
+            | None -> (failwith Errors.potato_WRONG_GAME : return)
             | Some book ->
                 let (_, tickets) = Big_map.get_and_update game.game_id (Some book) tickets in
                 (([] : operation list), {
@@ -95,7 +95,7 @@ let main (arg : parameter * storage) : return =
         let addr = Tezos.sender in
         let (ticket, tickets) = TicketBook.get send.game_id tickets in
         ( match ticket with
-          | None -> (failwith "not in game" : return)
+          | None -> (failwith Errors.potato_NOT_IN_GAME : return)
           | Some ticket ->
               let op = Tezos.transaction {game_id=send.game_id; ticket=ticket; winner=addr} 0mutez send.destination in
               ([op], {
@@ -110,7 +110,7 @@ let main (arg : parameter * storage) : return =
       | SetCurrentGame game_id -> begin
         let (tkt, tickets) = TicketBook.get game_id tickets in
         match tkt with
-        | None -> (failwith "not in game" : return)
+        | None -> (failwith Errors.potato_NOT_IN_GAME : return)
         | Some tkt ->
           let (_, tickets) = Big_map.get_and_update game_id (Some tkt) tickets in
           (([] : operation list), {

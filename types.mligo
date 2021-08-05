@@ -137,6 +137,7 @@ module Errors = struct
     let potato_BAD_CONTRACT = "Contract does not match"
     let potato_NO_GAME_DATA = "No game data"
     let potato_WRONG_GAME = "Wrong game"
+    let potato_NOT_IN_GAME = "Not in game"
     let potato_NO_TICKET = "Ticket does not exist"
     let potato_EMPTY_TICKETBOOK = "Out of tickets"
 end
