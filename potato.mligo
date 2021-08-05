@@ -174,8 +174,8 @@ begin
                 let addr = Tezos.sender in
                 if (addr = game_data.admin) then (failwith "Game owner cannot buy a potato" : return) else
                 (*assert (now < game_data.start_time);*)
-                if game_data.in_progress then (failwith "Game already in progress" : return) else
                 if game_data.game_over then (failwith "Game already finished" : return) else
+                if game_data.in_progress then (failwith "Game already in progress" : return) else
                 let (tkt, tickets) = TicketBook.get game_data.game_id tickets in (
                 match tkt with
                   | None -> (failwith Errors.potato_NO_TICKET : return)

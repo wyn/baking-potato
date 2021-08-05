@@ -9,6 +9,9 @@ SLEEP5 = $(shell sleep 5s)
 LIGO = ligo compile-contract
 MAIN = main
 ORIGINATE_CONTRACT = tezos-client originate contract
+CALL_ENDPOINT_00 = tezos-client transfer 0
+CALL_ENDPOINT_10 = tezos-client transfer 10
+
 
 VERSION = v1
 ALICE_ADDRESS = tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb
@@ -70,5 +73,41 @@ clean_michelson:
 
 clean_contracts:
 	tezos-client forget all contracts -force
+
+
+####################################################################################################
+
+# helpers for doing examples
+init: hot_potato_0 hot_potato_1
+
+# alice configures a game first (will get game_id=0),
+# 3 players max
+hot_potato_0:
+	$(CALL_ENDPOINT_00) from alice to potato-wallet-alice-$(VERSION) --entrypoint "hotPotato" \
+    --arg "Pair \"$(POTATO_GAME)%new_game\" (Pair 0 3)" --burn-cap 1
+
+# enoch second (will get game_id=1),
+# enough for 20 players
+hot_potato_1:
+	$(CALL_ENDPOINT_00) from enoch to potato-wallet-enoch-$(VERSION) --entrypoint "hotPotato" \
+    --arg "Pair \"$(POTATO_GAME)%new_game\" (Pair 0 20)" --burn-cap 1
+
+buy_in:
+	$(CALL_ENDPOINT_10) from $(NAME) to potato-game-$(VERSION) --entrypoint "buy_potato_for_game" \
+    --arg "Pair \"$(WALLET)%receive\" $(GAME_ID)" --burn-cap 1
+
+start:
+	$(CALL_ENDPOINT_00) from $(NAME) to potato-game-$(VERSION) --entrypoint "start_game" \
+    --arg "$(GAME_ID)" --burn-cap 1
+
+too_hot:
+	$(CALL_ENDPOINT_00) from $(NAME) to potato-wallet-$(NAME)-$(VERSION) --entrypoint "send" \
+    --arg "Pair \"$(POTATO_GAME)%pass_potato\" $(GAME_ID)" --burn-cap 1
+
+stop:
+	$(CALL_ENDPOINT_00) from $(NAME) to potato-game-$(VERSION) --entrypoint "end_game" \
+    --arg "$(GAME_ID)" --burn-cap 1
+
+
 
 # end
