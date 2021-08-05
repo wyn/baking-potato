@@ -47,8 +47,8 @@ let main (arg : parameter * storage) : return =
          for this game_id - the tickets actually get minted by the potato contract,
          that max limit is then enforced by the ticket semantics FOR EVER.
          Wallet owner becomes admin for that game_id *)
-      | HotPotato hot_potato_param -> begin
-        assert (Tezos.sender = admin);
+      | HotPotato hot_potato_param ->
+        if (Tezos.sender <> admin) then (failwith "Only wallet owner can initiate a game for themselves" : return) else
         let new_game_param : new_game_param = {
             admin = admin;
             start_time = hot_potato_param.start_time;
@@ -57,7 +57,6 @@ let main (arg : parameter * storage) : return =
         in
         let op = Tezos.transaction new_game_param 0mutez hot_potato_param.destination in
         ([op], {admin = admin; tickets = tickets; current_game_id = current_game_id})
-      end
 
       (* when receiving a ticket check whether this wallet has one similar and merge if nec *)
       | Receive ticket -> begin
