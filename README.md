@@ -1,6 +1,6 @@
 # Baking-potato
 
-A 'hot-potato' game built on the Tezos blockchain implemented as a FA2 contract that makes use of the recent 'tickets' innovation from February's 'edo' upgrade.
+A 'hot-potato' game built on the Tezos blockchain implemented as a FA2 contract that makes use of the recent 'tickets' innovation from February 2021 'edo' upgrade.
 
 ## How to play
 
@@ -17,6 +17,8 @@ The last person to pass the potato back before the game is ended wins the pot.
 Baking-potato is written in [LIGO](https://ligolang.org/docs/intro/introduction) (caml syntax) and runs on the Tezos blockchain.
 
 A working [prototype](https://florencenet.tzkt.io/KT1TzA4siyBUa6gkfAQgY2s81jYCwsf69Xr6/operations/) has been originated on the [Florence testnet](https://florencenet.tzkt.io/).
+
+There is no front-end as yet, all interactions must be done with the command-line.
 
 Baking-potato has two contracts
 
@@ -115,6 +117,10 @@ $ make clean
 
 will delete the build artifacts and all contracts.
 
+### Playing a game
+
+There is no front-end yet, game-play must be directed through tezos-client calls.
+
 At the end of the Makefile are some helper functions that allow you to set up two games and play through them.
 
 The first game, initiated by Alice has a maximum of three players.
@@ -131,7 +137,7 @@ for a game contract originated locally at "KT1TBxEnWcPiBtWnsCiv81s6FNdq8HxCDD9q"
 
 POTATO_GAME, NAME, WALLET and GAME_ID will all need to specified as environment variables to use these helper functions.
 
-Contract address and user address can be found in the tezos-client config directory, usually found at:
+Contract addresses and user addresses can be found in the tezos-client config directory, usually found at:
 
 ```sh
 $ ls -alh ~/.tezos-client
