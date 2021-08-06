@@ -1,16 +1,16 @@
 # Baking-potato
 
-A 'hot-potato' game built on the Tezos blockchain implemented as a FA2 contract that makes use of the recent 'tickets' innovation from February 2021 'edo' upgrade.
+A 'hot-potato' game built on the Tezos blockchain implemented as a FA2 contract that makes use of the recent 'tickets' innovation from the February 2021 'edo' upgrade.
 
 ## How to play
 
-Players buy in to a game and receive their own unique hot potato.
+Players buy-in to a game and receive their own unique hot potato.
 
-Buy ins are collected together to form the prize pot for that game.
+Buy-ins cost 10tz each and are collected together to form the prize pot for that game.
 
 Players hold on to their potato for as long as they can stand, then pass the potato back when they run out of nerves.
 
-The last person to pass the potato back before the game is ended wins the pot.
+The last person to pass the potato back before the game is ended wins the pot, obviously players do not know when the game will end.
 
 ## Details
 
@@ -18,7 +18,7 @@ Baking-potato is written in [LIGO](https://ligolang.org/docs/intro/introduction)
 
 A working [prototype](https://florencenet.tzkt.io/KT1TzA4siyBUa6gkfAQgY2s81jYCwsf69Xr6/operations/) has been originated on the [Florence testnet](https://florencenet.tzkt.io/).
 
-There is no front-end as yet, all interactions must be done with the command-line.
+> NOTE there is no front-end as yet, all interactions must be done with the command-line.
 
 Baking-potato has two contracts
 
@@ -68,7 +68,7 @@ A working prototype has been originated on the Florence testnet along with a set
 
 - potato-wallet-deb-v1: [KT1XZGfpYxEaEiZqKcyN9PgaCFahJPYPDK1v](https://florencenet.tzkt.io/KT1XZGfpYxEaEiZqKcyN9PgaCFahJPYPDK1v/operations/),
 
-- potato-wallet-enoch-v1: [KT1XkYZmySBkzKangHpBmy9gs1Dd3QfpdbYg](https://florencenet.tzkt.io/KT1XkYZmySBkzKangHpBmy9gs1Dd3QfpdbYg/operations/),
+- potato-wallet-enoch-v1: [KT1XkYZmySBkzKangHpBmy9gs1Dd3QfpdbYg](https://florencenet.tzkt.io/KT1XkYZmySBkzKangHpBmy9gs1Dd3QfpdbYg/operations/).
 
 ## Building and running
 
@@ -101,7 +101,7 @@ $ docker run --rm --detach \
 
 Finally you will also need the tezos-client, installation instructions can be found [here](https://assets.tqtezos.com/docs/setup/1-tezos-client/).
 
-> Note however that setup of the client should follow the instructions [here](https://assets.tqtezos.com/docs/setup/2-sandbox/) (after sandbox setup).
+> NOTE however that setup of the client should follow the instructions [here](https://assets.tqtezos.com/docs/setup/2-sandbox/) (after setting up the local sandbox with five users).
 
 With these pieces in place the included Makefile can be used to build code and originate contracts locally:
 
@@ -123,9 +123,9 @@ There is no front-end yet, game-play must be directed through tezos-client calls
 
 At the end of the Makefile are some helper functions that allow you to set up two games and play through them.
 
-The first game, initiated by Alice has a maximum of three players.
-
-The second game, initiated by Enoch has space for 20 players.
+> The first game, initiated by Alice has a maximum of three players.
+>
+> The second game, initiated by Enoch has space for 20 players.
 
 The game contract address, wallet addresses, names and game_ids will need to be passed via environment variables e.g.
 
@@ -135,7 +135,7 @@ $ POTATO_GAME=KT1TBxEnWcPiBtWnsCiv81s6FNdq8HxCDD9q make hot_potato
 
 for a game contract originated locally at "KT1TBxEnWcPiBtWnsCiv81s6FNdq8HxCDD9q".
 
-POTATO_GAME, NAME, WALLET and GAME_ID will all need to specified as environment variables to use these helper functions.
+> POTATO_GAME, NAME, WALLET and GAME_ID will all need to specified as environment variables to use these helper functions.
 
 Contract addresses and user addresses can be found in the tezos-client config directory, usually found at:
 
@@ -154,6 +154,8 @@ drwxr-xr-x 46 wyn wyn 4.0K Aug  6 08:04 ..
 ## Testing
 
 The game mechanics of Baking-potato have been manually tested on a local [Flextesa](https://gitlab.com/tezos/flextesa) instance and on the [Florence testnet](https://florencenet.tzkt.io/).
+
+> WARNING: FA2 aspects of the game contract have not been fully tested yet.
 
 ## Thanks
 
