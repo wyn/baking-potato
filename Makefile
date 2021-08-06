@@ -14,6 +14,7 @@ CALL_ENDPOINT_10 = tezos-client transfer 10
 
 
 VERSION = v1
+
 # SANDBOX addresses
 ALICE_ADDRESS = tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb
 BOB_ADDRESS = tz1aSkwEot3L2kmUvcoxzjMomb9mvBNuzFK6
